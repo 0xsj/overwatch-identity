@@ -32,10 +32,11 @@ const (
 	CodeSignatureRequired errors.Code = "SIGNATURE_REQUIRED"
 
 	// Token errors
-	CodeTokenInvalid        errors.Code = "TOKEN_INVALID"
-	CodeTokenExpired        errors.Code = "TOKEN_EXPIRED"
-	CodeRefreshTokenInvalid errors.Code = "REFRESH_TOKEN_INVALID"
-	CodeRefreshTokenExpired errors.Code = "REFRESH_TOKEN_EXPIRED"
+	CodeTokenInvalid         errors.Code = "TOKEN_INVALID"
+	CodeTokenExpired         errors.Code = "TOKEN_EXPIRED"
+	CodeRefreshTokenInvalid  errors.Code = "REFRESH_TOKEN_INVALID"
+	CodeRefreshTokenExpired  errors.Code = "REFRESH_TOKEN_EXPIRED"
+	CodeRefreshTokenRequired errors.Code = "REFRESH_TOKEN_REQUIRED"
 
 	// API Key errors
 	CodeAPIKeyNotFound     errors.Code = "API_KEY_NOT_FOUND"
@@ -100,6 +101,8 @@ var (
 	ErrRefreshTokenInvalid = errors.New(errors.KindUnauthorized, CodeRefreshTokenInvalid, "refresh token is invalid")
 
 	ErrRefreshTokenExpired = errors.New(errors.KindUnauthorized, CodeRefreshTokenExpired, "refresh token has expired")
+
+	ErrRefreshTokenRequired = errors.New(errors.KindValidation, CodeRefreshTokenRequired, "refresh token is required")
 )
 
 // API Key errors
