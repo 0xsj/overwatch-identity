@@ -65,7 +65,7 @@ type NATSConfig struct {
 type TokenConfig struct {
 	Issuer               string        `env:"TOKEN_ISSUER" default:"overwatch-identity"`
 	Audience             string        `env:"TOKEN_AUDIENCE" default:"overwatch"`
-	AccessTokenDuration  time.Duration `env:"TOKEN_ACCESS_DURATION" default:"15m"`
+	AccessTokenDuration  time.Duration `env:"TOKEN_ACCESS_DURATION" default:"24h"`
 	RefreshTokenDuration time.Duration `env:"TOKEN_REFRESH_DURATION" default:"168h"`
 	SigningKey           string        `env:"TOKEN_SIGNING_KEY" required:"true" sensitive:"true"`
 }
