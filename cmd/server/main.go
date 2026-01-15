@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -31,7 +33,8 @@ func main() {
 }
 
 func run() error {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// Load configuration
 	cfg, err := config.Load()
@@ -45,6 +48,18 @@ func run() error {
 	logger.Info("starting identity service",
 		log.String("version", "1.0.0"),
 		log.String("address", cfg.Server.Address()),
+	)
+
+	// Initialize service identity
+	identityManager, err := service.NewServiceIdentityManager(cfg.ServiceIdentity)
+	if err != nil {
+		return fmt.Errorf("failed to initialize service identity: %w", err)
+	}
+
+	logger.Info("service identity initialized",
+		log.String("service_id", cfg.ServiceIdentity.ID),
+		log.String("service_name", cfg.ServiceIdentity.Name),
+		log.String("did", identityManager.DID()),
 	)
 
 	// Connect to PostgreSQL
@@ -79,8 +94,15 @@ func run() error {
 	sessionCache := rediscache.NewSessionCache(redisClient, 24*time.Hour)
 	tokenBlacklist := rediscache.NewTokenBlacklist(redisClient)
 
-	// Initialize event publisher
-	eventPublisher := natsadapter.NewEventPublisher(natsConn, cfg.NATS.SubjectPrefix)
+	// Initialize event publisher with signing
+	eventPublisher, err := natsadapter.NewSignedEventPublisher(
+		natsConn,
+		cfg.NATS.SubjectPrefix,
+		identityManager.Identity(),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create event publisher: %w", err)
+	}
 
 	// Initialize token service
 	tokenService, err := service.NewTokenService(service.TokenConfig{
@@ -97,7 +119,7 @@ func run() error {
 	// Configuration for domain models
 	challengeConfig := model.DefaultChallengeConfig()
 	sessionConfig := model.DefaultSessionConfig()
-	domain := cfg.Token.Issuer // Use issuer as domain for challenge signing
+	domain := cfg.Token.Issuer
 
 	// Initialize command handlers
 	registerUserHandler := command.NewRegisterUserHandler(
@@ -218,9 +240,35 @@ func run() error {
 		return fmt.Errorf("failed to create grpc server: %w", err)
 	}
 
-	// Run server
+	// Handle graceful shutdown
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- server.Run()
+	}()
+
+	// Wait for shutdown signal
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
 	logger.Info("identity service started", log.String("address", serverCfg.Address()))
-	return server.Run()
+
+	select {
+	case err := <-errChan:
+		return fmt.Errorf("server error: %w", err)
+	case sig := <-sigChan:
+		logger.Info("received shutdown signal", log.String("signal", sig.String()))
+		cancel()
+
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
+		defer shutdownCancel()
+
+		if err := server.Stop(shutdownCtx); err != nil {
+			return fmt.Errorf("failed to stop server: %w", err)
+		}
+
+		logger.Info("identity service stopped gracefully")
+		return nil
+	}
 }
 
 func connectPostgres(ctx context.Context, cfg config.DatabaseConfig, logger log.Logger) (*pgxpool.Pool, error) {
