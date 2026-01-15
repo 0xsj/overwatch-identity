@@ -9,11 +9,12 @@ import (
 
 // Config holds all configuration for the identity service.
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	NATS     NATSConfig
-	Token    TokenConfig
+	Server          ServerConfig
+	Database        DatabaseConfig
+	Redis           RedisConfig
+	NATS            NATSConfig
+	Token           TokenConfig
+	ServiceIdentity ServiceIdentityConfig
 }
 
 // ServerConfig holds gRPC server configuration.
@@ -70,6 +71,28 @@ type TokenConfig struct {
 	SigningKey           string        `env:"TOKEN_SIGNING_KEY" required:"true" sensitive:"true"`
 }
 
+// ServiceIdentityConfig holds service identity configuration.
+type ServiceIdentityConfig struct {
+	// ID is the internal identifier for this service instance.
+	ID string `env:"SERVICE_IDENTITY_ID" default:"identity-service"`
+
+	// Name is the human-readable service name.
+	Name string `env:"SERVICE_IDENTITY_NAME" default:"identity"`
+
+	// PrivateKeyPath is the path to the Ed25519 private key file.
+	// If empty and GenerateIfMissing is true, a new key will be generated.
+	PrivateKeyPath string `env:"SERVICE_IDENTITY_PRIVATE_KEY_PATH" default:""`
+
+	// PrivateKeyBase64 is the base64-encoded Ed25519 private key.
+	// Takes precedence over PrivateKeyPath if set.
+	PrivateKeyBase64 string `env:"SERVICE_IDENTITY_PRIVATE_KEY" default:"" sensitive:"true"`
+
+	// GenerateIfMissing generates a new keypair if no key is configured.
+	// WARNING: Generated keys are ephemeral and lost on restart.
+	// Only use for development/testing.
+	GenerateIfMissing bool `env:"SERVICE_IDENTITY_GENERATE_IF_MISSING" default:"true"`
+}
+
 // Load loads configuration from environment variables.
 func Load() (*Config, error) {
 	cfg := &Config{}
@@ -102,4 +125,9 @@ func (c *DatabaseConfig) ConnectionString() string {
 // Address returns the Redis address.
 func (c *RedisConfig) Address() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
+}
+
+// HasPrivateKey returns true if a private key is configured.
+func (c *ServiceIdentityConfig) HasPrivateKey() bool {
+	return c.PrivateKeyBase64 != "" || c.PrivateKeyPath != ""
 }
