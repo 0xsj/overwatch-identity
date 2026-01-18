@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	pkgconfig "github.com/0xsj/overwatch-pkg/config"
+	config "github.com/0xsj/overwatch-pkg/config"
 )
 
 // Config holds all configuration for the identity service.
@@ -29,10 +29,10 @@ type ServerConfig struct {
 // DatabaseConfig holds PostgreSQL configuration.
 type DatabaseConfig struct {
 	Host              string        `env:"DATABASE_HOST" default:"localhost"`
-	Port              int           `env:"DATABASE_PORT" default:"5432"`
+	Port              int           `env:"DATABASE_PORT" default:"5450"`
 	User              string        `env:"DATABASE_USER" default:"overwatch"`
 	Password          string        `env:"DATABASE_PASSWORD" default:"overwatch" sensitive:"true"`
-	Database          string        `env:"DATABASE_NAME" default:"overwatch"`
+	Database          string        `env:"DATABASE_NAME" default:"overwatch_identity"`
 	SSLMode           string        `env:"DATABASE_SSL_MODE" default:"disable"`
 	MaxConns          int           `env:"DATABASE_MAX_CONNS" default:"25"`
 	MinConns          int           `env:"DATABASE_MIN_CONNS" default:"5"`
@@ -44,7 +44,7 @@ type DatabaseConfig struct {
 // RedisConfig holds Redis configuration.
 type RedisConfig struct {
 	Host         string        `env:"REDIS_HOST" default:"localhost"`
-	Port         int           `env:"REDIS_PORT" default:"6379"`
+	Port         int           `env:"REDIS_PORT" default:"6390"`
 	Password     string        `env:"REDIS_PASSWORD" default:"" sensitive:"true"`
 	DB           int           `env:"REDIS_DB" default:"0"`
 	PoolSize     int           `env:"REDIS_POOL_SIZE" default:"10"`
@@ -56,8 +56,8 @@ type RedisConfig struct {
 
 // NATSConfig holds NATS configuration.
 type NATSConfig struct {
-	URL           string        `env:"NATS_URL" default:"nats://localhost:4222"`
-	SubjectPrefix string        `env:"NATS_SUBJECT_PREFIX" default:"overwatch"`
+	URL           string        `env:"NATS_URL" default:"nats://localhost:4230"`
+	SubjectPrefix string        `env:"NATS_SUBJECT_PREFIX" default:"overwatch.identity"`
 	MaxReconnects int           `env:"NATS_MAX_RECONNECTS" default:"10"`
 	ReconnectWait time.Duration `env:"NATS_RECONNECT_WAIT" default:"2s"`
 }
@@ -73,30 +73,17 @@ type TokenConfig struct {
 
 // ServiceIdentityConfig holds service identity configuration.
 type ServiceIdentityConfig struct {
-	// ID is the internal identifier for this service instance.
-	ID string `env:"SERVICE_IDENTITY_ID" default:"identity-service"`
-
-	// Name is the human-readable service name.
-	Name string `env:"SERVICE_IDENTITY_NAME" default:"identity"`
-
-	// PrivateKeyPath is the path to the Ed25519 private key file.
-	// If empty and GenerateIfMissing is true, a new key will be generated.
-	PrivateKeyPath string `env:"SERVICE_IDENTITY_PRIVATE_KEY_PATH" default:""`
-
-	// PrivateKeyBase64 is the base64-encoded Ed25519 private key.
-	// Takes precedence over PrivateKeyPath if set.
-	PrivateKeyBase64 string `env:"SERVICE_IDENTITY_PRIVATE_KEY" default:"" sensitive:"true"`
-
-	// GenerateIfMissing generates a new keypair if no key is configured.
-	// WARNING: Generated keys are ephemeral and lost on restart.
-	// Only use for development/testing.
-	GenerateIfMissing bool `env:"SERVICE_IDENTITY_GENERATE_IF_MISSING" default:"true"`
+	ID                string `env:"SERVICE_IDENTITY_ID" default:"identity-service"`
+	Name              string `env:"SERVICE_IDENTITY_NAME" default:"identity"`
+	PrivateKeyPath    string `env:"SERVICE_IDENTITY_PRIVATE_KEY_PATH" default:""`
+	PrivateKeyBase64  string `env:"SERVICE_IDENTITY_PRIVATE_KEY" default:"" sensitive:"true"`
+	GenerateIfMissing bool   `env:"SERVICE_IDENTITY_GENERATE_IF_MISSING" default:"true"`
 }
 
 // Load loads configuration from environment variables.
 func Load() (*Config, error) {
 	cfg := &Config{}
-	if err := pkgconfig.Load(cfg); err != nil {
+	if err := config.Load(cfg, config.WithPrefix("IDENTITY_")); err != nil {
 		return nil, err
 	}
 	return cfg, nil
@@ -105,7 +92,7 @@ func Load() (*Config, error) {
 // MustLoad loads configuration and panics on error.
 func MustLoad() *Config {
 	cfg := &Config{}
-	pkgconfig.MustLoad(cfg)
+	config.MustLoad(cfg, config.WithPrefix("IDENTITY_"))
 	return cfg
 }
 

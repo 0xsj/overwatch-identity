@@ -157,6 +157,12 @@ func run() error {
 		eventPublisher,
 		sessionConfig,
 	)
+	revokeTokenHandler := command.NewRevokeTokenHandler(
+		sessionRepo,
+		sessionCache,
+		tokenService,
+		eventPublisher,
+	)
 	revokeSessionHandler := command.NewRevokeSessionHandler(
 		sessionRepo,
 		sessionCache,
@@ -201,6 +207,7 @@ func run() error {
 		AuthenticateHandler:         authenticateHandler,
 		VerifyAuthenticationHandler: verifyAuthenticationHandler,
 		RefreshTokenHandler:         refreshTokenHandler,
+		RevokeTokenHandler:          revokeTokenHandler,
 		RevokeSessionHandler:        revokeSessionHandler,
 		RevokeAllSessionsHandler:    revokeAllSessionsHandler,
 		CreateAPIKeyHandler:         createAPIKeyHandler,

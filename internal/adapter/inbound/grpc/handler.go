@@ -24,6 +24,7 @@ type Handler struct {
 	authenticateHandler         command.AuthenticateHandler
 	verifyAuthenticationHandler command.VerifyAuthenticationHandler
 	refreshTokenHandler         command.RefreshTokenHandler
+	revokeTokenHandler          command.RevokeTokenHandler
 	revokeSessionHandler        command.RevokeSessionHandler
 	revokeAllSessionsHandler    command.RevokeAllSessionsHandler
 	createAPIKeyHandler         command.CreateAPIKeyHandler
@@ -47,6 +48,7 @@ type HandlerConfig struct {
 	AuthenticateHandler         command.AuthenticateHandler
 	VerifyAuthenticationHandler command.VerifyAuthenticationHandler
 	RefreshTokenHandler         command.RefreshTokenHandler
+	RevokeTokenHandler          command.RevokeTokenHandler
 	RevokeSessionHandler        command.RevokeSessionHandler
 	RevokeAllSessionsHandler    command.RevokeAllSessionsHandler
 	CreateAPIKeyHandler         command.CreateAPIKeyHandler
@@ -69,6 +71,7 @@ func NewHandler(cfg HandlerConfig) *Handler {
 		authenticateHandler:         cfg.AuthenticateHandler,
 		verifyAuthenticationHandler: cfg.VerifyAuthenticationHandler,
 		refreshTokenHandler:         cfg.RefreshTokenHandler,
+		revokeTokenHandler:          cfg.RevokeTokenHandler,
 		revokeSessionHandler:        cfg.RevokeSessionHandler,
 		revokeAllSessionsHandler:    cfg.RevokeAllSessionsHandler,
 		createAPIKeyHandler:         cfg.CreateAPIKeyHandler,
@@ -201,9 +204,15 @@ func (h *Handler) RefreshToken(ctx context.Context, req *identityv1.RefreshToken
 }
 
 func (h *Handler) RevokeToken(ctx context.Context, req *identityv1.RevokeTokenRequest) (*identityv1.RevokeTokenResponse, error) {
-	// RevokeToken works through refresh token, which revokes the session
-	// For now, we'll need the user context to revoke properly
-	// This is a simplified implementation
+	cmd := command.RevokeToken{
+		RefreshToken: req.RefreshToken,
+	}
+
+	_, err := h.revokeTokenHandler.Handle(ctx, cmd)
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
 	return &identityv1.RevokeTokenResponse{}, nil
 }
 
