@@ -1,0 +1,218 @@
+# overwatch-identity/deploy/values.yaml
+#
+# Helm values for the identity service.
+# Deploy: helm install identity ../overwatch-infra/k8s/charts/overwatch-service -f deploy/values.yaml
+#
+
+# =============================================================================
+# Service identification
+# =============================================================================
+
+nameOverride: identity
+fullnameOverride: overwatch-identity
+
+# =============================================================================
+# Image
+# =============================================================================
+
+image:
+  registry: ghcr.io
+  repository: your-org/overwatch-identity
+  tag: "" # Defaults to Chart.appVersion
+  pullPolicy: IfNotPresent
+
+# =============================================================================
+# Deployment
+# =============================================================================
+
+replicaCount: 2
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+
+# =============================================================================
+# Container
+# =============================================================================
+
+ports:
+  grpc: 9090
+  health: 8081
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# =============================================================================
+# Probes
+# =============================================================================
+
+probes:
+  startup:
+    enabled: true
+    type: http
+    path: /health/live
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    failureThreshold: 30
+  liveness:
+    enabled: true
+    type: http
+    path: /health/live
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    type: http
+    path: /health/ready
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    failureThreshold: 3
+
+# =============================================================================
+# Service
+# =============================================================================
+
+service:
+  type: ClusterIP
+  grpcAppProtocol: grpc
+
+# =============================================================================
+# Dependencies
+# =============================================================================
+
+database:
+  enabled: true
+  host: overwatch-postgresql
+  port: "5432"
+  name: overwatch_identity
+  sslMode: require
+
+redis:
+  enabled: true
+  host: overwatch-redis
+  port: "6379"
+
+nats:
+  enabled: true
+  url: nats://overwatch-nats:4222
+
+# =============================================================================
+# Configuration
+# =============================================================================
+
+config:
+  application:
+    IDENTITY_SERVER_HOST: "0.0.0.0"
+    IDENTITY_SERVER_PORT: "9090"
+    IDENTITY_SERVER_ENABLE_REFLECTION: "true"
+    IDENTITY_SERVER_ENABLE_HEALTH_CHECK: "true"
+    IDENTITY_SERVER_SHUTDOWN_TIMEOUT: "30s"
+    IDENTITY_NATS_SUBJECT_PREFIX: "overwatch.identity"
+    IDENTITY_TOKEN_ISSUER: "overwatch-identity"
+    IDENTITY_TOKEN_AUDIENCE: "overwatch"
+    IDENTITY_TOKEN_ACCESS_DURATION: "24h"
+    IDENTITY_TOKEN_REFRESH_DURATION: "168h"
+    IDENTITY_SERVICE_IDENTITY_ID: "identity-service"
+    IDENTITY_SERVICE_IDENTITY_NAME: "identity"
+    IDENTITY_SERVICE_IDENTITY_GENERATE_IF_MISSING: "true"
+
+# =============================================================================
+# Secrets
+# =============================================================================
+
+secrets:
+  database:
+    user: overwatch
+    password: "" # Set via --set or external secret
+  redis:
+    password: ""
+  auth:
+    signingKey: "" # TOKEN_SIGNING_KEY - required
+  provenance:
+    privateKey: "" # SERVICE_IDENTITY_PRIVATE_KEY
+
+# External secrets (recommended for production)
+# externalSecrets:
+#   enabled: true
+#   refreshInterval: "1h"
+#   secretStoreRef:
+#     name: vault-backend
+#     kind: ClusterSecretStore
+#   data:
+#     - secretKey: database-password
+#       remoteKey: overwatch/identity/database
+#       property: password
+#     - secretKey: token-signing-key
+#       remoteKey: overwatch/identity/auth
+#       property: signing-key
+
+# =============================================================================
+# Migrations
+# =============================================================================
+
+migrations:
+  enabled: true
+  command:
+    - /app/server
+  args:
+    - migrate
+    - --dir
+    - /app/migrations
+
+# =============================================================================
+# Autoscaling
+# =============================================================================
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+# =============================================================================
+# Pod Disruption Budget
+# =============================================================================
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# =============================================================================
+# Service Account
+# =============================================================================
+
+serviceAccount:
+  create: true
+  annotations: {}
+  # AWS IRSA example:
+  # eks.amazonaws.com/role-arn: arn:aws:iam::123456789:role/overwatch-identity
+
+# =============================================================================
+# Scheduling
+# =============================================================================
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: identity
+          topologyKey: kubernetes.io/hostname
+
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: identity
