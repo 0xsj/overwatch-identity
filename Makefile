@@ -19,7 +19,7 @@ BIN_DIR := ./bin
 MIGRATIONS_DIR := ./migrations
 
 # Database
-DATABASE_URL ?= postgres://overwatch:overwatch@localhost:5432/overwatch?sslmode=disable
+DATABASE_URL ?= postgres://overwatch:overwatch@localhost:5450/overwatch_identity?sslmode=disable
 
 # Default target
 all: build
