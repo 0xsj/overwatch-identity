@@ -235,6 +235,7 @@ func run() error {
 		serverCfg,
 		handler,
 		tokenService,
+		sessionRepo,
 		logger,
 	)
 	if err != nil {

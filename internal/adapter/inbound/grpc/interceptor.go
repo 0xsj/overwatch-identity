@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 
 	"google.golang.org/grpc"
 
@@ -9,7 +10,11 @@ import (
 	"github.com/0xsj/overwatch-pkg/log"
 
 	"github.com/0xsj/overwatch-identity/internal/app/service"
+	"github.com/0xsj/overwatch-identity/internal/port/outbound/repository"
 )
+
+// ErrSessionRevoked is returned when the session associated with a token has been revoked.
+var ErrSessionRevoked = errors.New("session revoked")
 
 // PublicMethods defines methods that don't require authentication.
 var PublicMethods = map[string]bool{
@@ -35,11 +40,23 @@ const (
 )
 
 // NewAuthenticator creates an Authenticator that validates tokens using the TokenService.
-func NewAuthenticator(tokenService service.TokenService) middleware.Authenticator {
+func NewAuthenticator(tokenService service.TokenService, sessionRepo repository.SessionRepository) middleware.Authenticator {
 	return middleware.AuthenticatorFunc(func(ctx context.Context, token string) (*middleware.AuthInfo, error) {
+		// Validate JWT signature and claims
 		claims, err := tokenService.ValidateAccessToken(token)
 		if err != nil {
 			return nil, err
+		}
+
+		// Check if session is still valid (not revoked)
+		session, err := sessionRepo.FindByID(ctx, claims.SessionID)
+		if err != nil {
+			return nil, ErrSessionRevoked
+		}
+
+		if err := session.Validate(); err != nil {
+			// Session is revoked or expired
+			return nil, ErrSessionRevoked
 		}
 
 		authInfo := &middleware.AuthInfo{
@@ -63,8 +80,8 @@ func NewAuthenticator(tokenService service.TokenService) middleware.Authenticato
 }
 
 // NewAuthInterceptors creates unary and stream auth interceptors.
-func NewAuthInterceptors(tokenService service.TokenService) (grpc.UnaryServerInterceptor, grpc.StreamServerInterceptor) {
-	authenticator := NewAuthenticator(tokenService)
+func NewAuthInterceptors(tokenService service.TokenService, sessionRepo repository.SessionRepository) (grpc.UnaryServerInterceptor, grpc.StreamServerInterceptor) {
+	authenticator := NewAuthenticator(tokenService, sessionRepo)
 
 	cfg := middleware.AuthConfig{
 		Header:          middleware.AuthorizationHeader,
@@ -79,8 +96,8 @@ func NewAuthInterceptors(tokenService service.TokenService) (grpc.UnaryServerInt
 }
 
 // BuildUnaryInterceptors builds the complete unary interceptor chain with correct order.
-func BuildUnaryInterceptors(logger log.Logger, tokenService service.TokenService) []grpc.UnaryServerInterceptor {
-	unaryAuth, _ := NewAuthInterceptors(tokenService)
+func BuildUnaryInterceptors(logger log.Logger, tokenService service.TokenService, sessionRepo repository.SessionRepository) []grpc.UnaryServerInterceptor {
+	unaryAuth, _ := NewAuthInterceptors(tokenService, sessionRepo)
 
 	return []grpc.UnaryServerInterceptor{
 		middleware.UnaryServerRecoveryWithLogger(logger), // 1. Outermost - catch panics
@@ -91,8 +108,8 @@ func BuildUnaryInterceptors(logger log.Logger, tokenService service.TokenService
 }
 
 // BuildStreamInterceptors builds the complete stream interceptor chain with correct order.
-func BuildStreamInterceptors(logger log.Logger, tokenService service.TokenService) []grpc.StreamServerInterceptor {
-	_, streamAuth := NewAuthInterceptors(tokenService)
+func BuildStreamInterceptors(logger log.Logger, tokenService service.TokenService, sessionRepo repository.SessionRepository) []grpc.StreamServerInterceptor {
+	_, streamAuth := NewAuthInterceptors(tokenService, sessionRepo)
 
 	return []grpc.StreamServerInterceptor{
 		middleware.StreamServerRecoveryWithLogger(logger), // 1. Outermost - catch panics

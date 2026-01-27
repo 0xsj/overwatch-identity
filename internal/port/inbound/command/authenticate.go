@@ -20,6 +20,7 @@ func (c Authenticate) CommandName() string {
 type AuthenticateResult struct {
 	ChallengeID types.ID
 	Nonce       string
+	Message     string
 	ExpiresAt   types.Timestamp
 }
 

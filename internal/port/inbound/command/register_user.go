@@ -22,6 +22,7 @@ func (c RegisterUser) CommandName() string {
 type RegisterUserResult struct {
 	ChallengeID types.ID
 	Nonce       string
+	Message     string
 	ExpiresAt   types.Timestamp
 }
 

@@ -11,6 +11,7 @@ import (
 
 	identityv1 "github.com/0xsj/overwatch-contracts/gen/go/identity/v1"
 	"github.com/0xsj/overwatch-identity/internal/app/service"
+	"github.com/0xsj/overwatch-identity/internal/port/outbound/repository"
 )
 
 // ServerConfig holds configuration for the identity gRPC server.
@@ -46,6 +47,7 @@ func NewServer(
 	cfg ServerConfig,
 	handler *Handler,
 	tokenService service.TokenService,
+	sessionRepo repository.SessionRepository,
 	logger log.Logger,
 ) (*Server, error) {
 	if err := cfg.Validate(); err != nil {
@@ -53,8 +55,8 @@ func NewServer(
 	}
 
 	// Build interceptor chains with correct order
-	unaryInterceptors := BuildUnaryInterceptors(logger, tokenService)
-	streamInterceptors := BuildStreamInterceptors(logger, tokenService)
+	unaryInterceptors := BuildUnaryInterceptors(logger, tokenService, sessionRepo)
+	streamInterceptors := BuildStreamInterceptors(logger, tokenService, sessionRepo)
 
 	// Create server with options
 	server, err := pkggrpc.NewServer(

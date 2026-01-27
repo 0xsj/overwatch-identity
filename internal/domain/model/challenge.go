@@ -43,6 +43,7 @@ type Challenge struct {
 
 // ChallengeConfig holds configuration for challenge creation.
 type ChallengeConfig struct {
+	Domain            string
 	ChallengeDuration time.Duration
 	NonceLength       int
 }
@@ -50,6 +51,7 @@ type ChallengeConfig struct {
 // DefaultChallengeConfig returns default challenge configuration.
 func DefaultChallengeConfig() ChallengeConfig {
 	return ChallengeConfig{
+		Domain:            "overwatch-identity",
 		ChallengeDuration: 5 * time.Minute,
 		NonceLength:       32,
 	}

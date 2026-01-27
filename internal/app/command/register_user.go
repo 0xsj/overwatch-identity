@@ -32,6 +32,9 @@ func NewRegisterUserHandler(
 }
 
 func (h *registerUserHandler) Handle(ctx context.Context, cmd command.RegisterUser) (command.RegisterUserResult, error) {
+	if err := security.ValidateDID(cmd.DID); err != nil {
+		return command.RegisterUserResult{}, domainerror.ErrUserDIDRequired
+	}
 	// Parse and validate DID
 	did, err := security.ParseDID(cmd.DID)
 	if err != nil {
@@ -64,6 +67,7 @@ func (h *registerUserHandler) Handle(ctx context.Context, cmd command.RegisterUs
 	return command.RegisterUserResult{
 		ChallengeID: challenge.ID(),
 		Nonce:       challenge.Nonce(),
+		Message:     challenge.Message(h.config.Domain),
 		ExpiresAt:   challenge.ExpiresAt(),
 	}, nil
 }

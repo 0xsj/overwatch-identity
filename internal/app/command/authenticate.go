@@ -32,6 +32,9 @@ func NewAuthenticateHandler(
 }
 
 func (h *authenticateHandler) Handle(ctx context.Context, cmd command.Authenticate) (command.AuthenticateResult, error) {
+	if err := security.ValidateDID(cmd.DID); err != nil {
+		return command.AuthenticateResult{}, domainerror.ErrUserDIDRequired
+	}
 	// Parse and validate DID
 	did, err := security.ParseDID(cmd.DID)
 	if err != nil {
@@ -66,6 +69,7 @@ func (h *authenticateHandler) Handle(ctx context.Context, cmd command.Authentica
 	return command.AuthenticateResult{
 		ChallengeID: challenge.ID(),
 		Nonce:       challenge.Nonce(),
+		Message:     challenge.Message(h.config.Domain),
 		ExpiresAt:   challenge.ExpiresAt(),
 	}, nil
 }

@@ -94,7 +94,6 @@ func (h *Handler) Ping(ctx context.Context, req *identityv1.PingRequest) (*ident
 }
 
 // Registration
-
 func (h *Handler) Register(ctx context.Context, req *identityv1.RegisterRequest) (*identityv1.RegisterResponse, error) {
 	cmd := command.RegisterUser{
 		DID:   req.Did,
@@ -110,6 +109,7 @@ func (h *Handler) Register(ctx context.Context, req *identityv1.RegisterRequest)
 	return &identityv1.RegisterResponse{
 		ChallengeId: result.ChallengeID.String(),
 		Nonce:       result.Nonce,
+		Message:     result.Message,
 		ExpiresAt:   timestamppb.New(result.ExpiresAt.Time()),
 	}, nil
 }
@@ -154,6 +154,7 @@ func (h *Handler) Authenticate(ctx context.Context, req *identityv1.Authenticate
 	return &identityv1.AuthenticateResponse{
 		ChallengeId: result.ChallengeID.String(),
 		Nonce:       result.Nonce,
+		Message:     result.Message,
 		ExpiresAt:   timestamppb.New(result.ExpiresAt.Time()),
 	}, nil
 }
