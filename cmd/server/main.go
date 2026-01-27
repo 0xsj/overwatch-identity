@@ -222,12 +222,8 @@ func run() error {
 		VerifyAPIKeyHandler:         verifyAPIKeyHandler,
 	})
 
-	// Initialize interceptors
-	authInterceptor := identitygrpc.NewAuthInterceptor(tokenService)
-	loggingInterceptor := identitygrpc.NewLoggingInterceptor(newGRPCLogger(logger))
-	recoveryInterceptor := identitygrpc.NewRecoveryInterceptor(newGRPCLogger(logger))
-
 	// Initialize gRPC server
+	// Interceptors are now built internally with correct order
 	serverCfg := identitygrpc.ServerConfig{
 		Host:              cfg.Server.Host,
 		Port:              cfg.Server.Port,
@@ -238,10 +234,8 @@ func run() error {
 	server, err := identitygrpc.NewServer(
 		serverCfg,
 		handler,
+		tokenService,
 		logger,
-		recoveryInterceptor.Unary(),
-		loggingInterceptor.Unary(),
-		authInterceptor.Unary(),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create grpc server: %w", err)
@@ -355,37 +349,4 @@ func connectNATS(cfg config.NATSConfig, logger log.Logger) (*natsclient.Conn, er
 	)
 
 	return conn, nil
-}
-
-// grpcLogger adapts log.Logger to identitygrpc.Logger interface.
-type grpcLogger struct {
-	logger log.Logger
-}
-
-func newGRPCLogger(logger log.Logger) *grpcLogger {
-	return &grpcLogger{logger: logger}
-}
-
-func (l *grpcLogger) Info(msg string, fields ...interface{}) {
-	l.logger.Info(msg, toLogFields(fields)...)
-}
-
-func (l *grpcLogger) Error(msg string, fields ...interface{}) {
-	l.logger.Error(msg, toLogFields(fields)...)
-}
-
-func toLogFields(fields []interface{}) []log.Field {
-	if len(fields) == 0 {
-		return nil
-	}
-
-	result := make([]log.Field, 0, len(fields)/2)
-	for i := 0; i < len(fields)-1; i += 2 {
-		key, ok := fields[i].(string)
-		if !ok {
-			continue
-		}
-		result = append(result, log.Any(key, fields[i+1]))
-	}
-	return result
 }

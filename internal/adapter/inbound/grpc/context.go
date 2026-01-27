@@ -4,16 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/0xsj/overwatch-pkg/grpc/middleware"
 	"github.com/0xsj/overwatch-pkg/types"
-)
-
-type contextKey string
-
-const (
-	userIDKey    contextKey = "user_id"
-	userDIDKey   contextKey = "user_did"
-	tenantIDKey  contextKey = "tenant_id"
-	sessionIDKey contextKey = "session_id"
 )
 
 var (
@@ -23,92 +15,78 @@ var (
 	ErrNoSessionIDInContext = errors.New("no session_id in context")
 )
 
-// WithUserID adds the user ID to the context.
-func WithUserID(ctx context.Context, userID types.ID) context.Context {
-	return context.WithValue(ctx, userIDKey, userID)
-}
-
-// WithUserDID adds the user DID to the context.
-func WithUserDID(ctx context.Context, did string) context.Context {
-	return context.WithValue(ctx, userDIDKey, did)
-}
-
-// WithTenantID adds the tenant ID to the context.
-func WithTenantID(ctx context.Context, tenantID types.ID) context.Context {
-	return context.WithValue(ctx, tenantIDKey, tenantID)
-}
-
-// WithSessionID adds the session ID to the context.
-func WithSessionID(ctx context.Context, sessionID types.ID) context.Context {
-	return context.WithValue(ctx, sessionIDKey, sessionID)
-}
-
-// getUserIDFromContext extracts the user ID from context.
+// getUserIDFromContext extracts the user ID from auth context.
 func getUserIDFromContext(ctx context.Context) (types.ID, error) {
-	val := ctx.Value(userIDKey)
-	if val == nil {
+	authInfo := middleware.GetAuthInfo(ctx)
+	if authInfo == nil {
 		return "", ErrNoUserIDInContext
 	}
 
-	userID, ok := val.(types.ID)
+	userID, ok := authInfo.Claims["user_id"].(types.ID)
 	if !ok {
 		return "", ErrNoUserIDInContext
 	}
-
 	return userID, nil
 }
 
-// getUserDIDFromContext extracts the user DID from context.
+// getUserDIDFromContext extracts the user DID from auth context.
 func getUserDIDFromContext(ctx context.Context) (string, error) {
-	val := ctx.Value(userDIDKey)
-	if val == nil {
+	authInfo := middleware.GetAuthInfo(ctx)
+	if authInfo == nil {
 		return "", ErrNoUserDIDInContext
 	}
 
-	did, ok := val.(string)
+	did, ok := authInfo.Claims["did"].(string)
 	if !ok {
 		return "", ErrNoUserDIDInContext
 	}
-
 	return did, nil
 }
 
-// getTenantIDFromContext extracts the tenant ID from context.
+// getTenantIDFromContext extracts the tenant ID from auth context.
 func getTenantIDFromContext(ctx context.Context) (types.ID, error) {
-	val := ctx.Value(tenantIDKey)
-	if val == nil {
+	authInfo := middleware.GetAuthInfo(ctx)
+	if authInfo == nil {
 		return "", ErrNoTenantIDInContext
 	}
 
-	tenantID, ok := val.(types.ID)
+	tenantID, ok := authInfo.Claims["tenant_id"].(types.ID)
 	if !ok {
 		return "", ErrNoTenantIDInContext
 	}
-
 	return tenantID, nil
 }
 
-// getSessionIDFromContext extracts the session ID from context.
+// getSessionIDFromContext extracts the session ID from auth context.
 func getSessionIDFromContext(ctx context.Context) (types.ID, error) {
-	val := ctx.Value(sessionIDKey)
-	if val == nil {
+	authInfo := middleware.GetAuthInfo(ctx)
+	if authInfo == nil {
 		return "", ErrNoSessionIDInContext
 	}
 
-	sessionID, ok := val.(types.ID)
+	sessionID, ok := authInfo.Claims["session_id"].(types.ID)
 	if !ok {
 		return "", ErrNoSessionIDInContext
 	}
-
 	return sessionID, nil
 }
 
-// GetUserIDFromContext is the exported version for interceptors.
+// GetUserIDFromContext is the exported version for use outside this package.
 func GetUserIDFromContext(ctx context.Context) (types.ID, error) {
 	return getUserIDFromContext(ctx)
 }
 
-// GetTenantIDFromContext is the exported version for interceptors.
+// GetUserDIDFromContext is the exported version for use outside this package.
+func GetUserDIDFromContext(ctx context.Context) (string, error) {
+	return getUserDIDFromContext(ctx)
+}
+
+// GetTenantIDFromContext is the exported version for use outside this package.
 func GetTenantIDFromContext(ctx context.Context) (types.ID, error) {
 	return getTenantIDFromContext(ctx)
+}
+
+// GetSessionIDFromContext is the exported version for use outside this package.
+func GetSessionIDFromContext(ctx context.Context) (types.ID, error) {
+	return getSessionIDFromContext(ctx)
 }
