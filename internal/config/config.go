@@ -57,7 +57,7 @@ type RedisConfig struct {
 // NATSConfig holds NATS configuration.
 type NATSConfig struct {
 	URL           string        `env:"NATS_URL" default:"nats://localhost:4230"`
-	SubjectPrefix string        `env:"NATS_SUBJECT_PREFIX" default:"overwatch.identity"`
+	SubjectPrefix string        `env:"NATS_SUBJECT_PREFIX" default:"overwatch"`
 	MaxReconnects int           `env:"NATS_MAX_RECONNECTS" default:"10"`
 	ReconnectWait time.Duration `env:"NATS_RECONNECT_WAIT" default:"2s"`
 }
