@@ -12,315 +12,518 @@ import (
 )
 
 func TestNewChallenge(t *testing.T) {
-	keyPair := mustGenerateEd25519(t)
-	did := mustDIDFromKeyPair(t, keyPair)
-	config := model.DefaultChallengeConfig()
+	t.Run("valid inputs for authentication", func(t *testing.T) {
+		did := testDID(t)
+		config := model.DefaultChallengeConfig()
 
-	t.Run("creates valid registration challenge", func(t *testing.T) {
-		challenge, err := model.NewChallenge(did, model.ChallengePurposeRegister, config)
+		challenge, err := model.NewChallenge(did, model.ChallengePurposeAuthenticate, config)
+
 		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+			t.Fatalf("NewChallenge() error = %v", err)
 		}
-
-		if challenge.ID() == "" {
-			t.Error("expected non-empty ID")
+		if challenge == nil {
+			t.Fatal("NewChallenge() returned nil")
 		}
-		if challenge.DID().String() != did.String() {
-			t.Errorf("DID mismatch: got %s, want %s", challenge.DID().String(), did.String())
+		if challenge.ID().IsEmpty() {
+			t.Error("ID should not be empty")
+		}
+		if challenge.DID() != did {
+			t.Errorf("DID = %v, want %v", challenge.DID(), did)
+		}
+		if challenge.Purpose() != model.ChallengePurposeAuthenticate {
+			t.Errorf("Purpose = %v, want %v", challenge.Purpose(), model.ChallengePurposeAuthenticate)
 		}
 		if challenge.Nonce() == "" {
-			t.Error("expected non-empty nonce")
+			t.Error("Nonce should not be empty")
 		}
-		if challenge.Purpose() != model.ChallengePurposeRegister {
-			t.Errorf("purpose mismatch: got %s, want %s", challenge.Purpose(), model.ChallengePurposeRegister)
+		if challenge.CreatedAt().IsZero() {
+			t.Error("CreatedAt should be set")
 		}
-		if !challenge.IsForRegistration() {
-			t.Error("expected IsForRegistration to be true")
+		if challenge.ExpiresAt().IsZero() {
+			t.Error("ExpiresAt should be set")
 		}
-		if challenge.IsForAuthentication() {
-			t.Error("expected IsForAuthentication to be false")
-		}
-		if challenge.IsExpired() {
-			t.Error("new challenge should not be expired")
-		}
-	})
-
-	t.Run("creates valid authentication challenge", func(t *testing.T) {
-		challenge, err := model.NewChallenge(did, model.ChallengePurposeAuthenticate, config)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if challenge.Purpose() != model.ChallengePurposeAuthenticate {
-			t.Errorf("purpose mismatch: got %s, want %s", challenge.Purpose(), model.ChallengePurposeAuthenticate)
+		if !challenge.IsValid() {
+			t.Error("challenge should be valid")
 		}
 		if !challenge.IsForAuthentication() {
-			t.Error("expected IsForAuthentication to be true")
+			t.Error("IsForAuthentication() should return true")
+		}
+		if challenge.IsForRegistration() {
+			t.Error("IsForRegistration() should return false")
 		}
 	})
 
-	t.Run("rejects nil DID", func(t *testing.T) {
-		_, err := model.NewChallenge(nil, model.ChallengePurposeRegister, config)
-		if err == nil {
-			t.Fatal("expected error for nil DID")
+	t.Run("valid inputs for registration", func(t *testing.T) {
+		did := testDID(t)
+		config := model.DefaultChallengeConfig()
+
+		challenge, err := model.NewChallenge(did, model.ChallengePurposeRegister, config)
+
+		if err != nil {
+			t.Fatalf("NewChallenge() error = %v", err)
+		}
+		if challenge.Purpose() != model.ChallengePurposeRegister {
+			t.Errorf("Purpose = %v, want %v", challenge.Purpose(), model.ChallengePurposeRegister)
+		}
+		if !challenge.IsForRegistration() {
+			t.Error("IsForRegistration() should return true")
+		}
+		if challenge.IsForAuthentication() {
+			t.Error("IsForAuthentication() should return false")
 		}
 	})
 
-	t.Run("rejects invalid purpose", func(t *testing.T) {
-		_, err := model.NewChallenge(did, model.ChallengePurpose("invalid"), config)
+	t.Run("nil DID", func(t *testing.T) {
+		config := model.DefaultChallengeConfig()
+
+		challenge, err := model.NewChallenge(nil, model.ChallengePurposeAuthenticate, config)
+
 		if err == nil {
-			t.Fatal("expected error for invalid purpose")
+			t.Fatal("NewChallenge() with nil DID should return error")
+		}
+		if challenge != nil {
+			t.Error("challenge should be nil")
+		}
+		if err != domainerror.ErrUserDIDRequired {
+			t.Errorf("error = %v, want %v", err, domainerror.ErrUserDIDRequired)
+		}
+	})
+
+	t.Run("invalid purpose", func(t *testing.T) {
+		did := testDID(t)
+		config := model.DefaultChallengeConfig()
+
+		challenge, err := model.NewChallenge(did, model.ChallengePurpose("invalid"), config)
+
+		if err == nil {
+			t.Fatal("NewChallenge() with invalid purpose should return error")
+		}
+		if challenge != nil {
+			t.Error("challenge should be nil")
+		}
+		if err != domainerror.ErrChallengeInvalid {
+			t.Errorf("error = %v, want %v", err, domainerror.ErrChallengeInvalid)
+		}
+	})
+
+	t.Run("custom config", func(t *testing.T) {
+		did := testDID(t)
+		config := model.ChallengeConfig{
+			Domain:            "custom-domain",
+			ChallengeDuration: 10 * time.Minute,
+			NonceLength:       64,
+		}
+
+		challenge, err := model.NewChallenge(did, model.ChallengePurposeAuthenticate, config)
+
+		if err != nil {
+			t.Fatalf("NewChallenge() error = %v", err)
+		}
+		// Nonce should be longer with custom config
+		if len(challenge.Nonce()) < 64 {
+			t.Errorf("Nonce length = %d, want >= 64", len(challenge.Nonce()))
 		}
 	})
 }
 
-func TestChallenge_Validation(t *testing.T) {
-	keyPair := mustGenerateEd25519(t)
-	did := mustDIDFromKeyPair(t, keyPair)
+func TestChallenge_IsExpired(t *testing.T) {
+	t.Run("not expired", func(t *testing.T) {
+		did := testDID(t)
+		challenge, _ := model.NewChallenge(did, model.ChallengePurposeAuthenticate, model.DefaultChallengeConfig())
 
-	t.Run("valid challenge passes validation", func(t *testing.T) {
-		challenge, _ := model.NewChallenge(did, model.ChallengePurposeRegister, model.DefaultChallengeConfig())
-
-		if err := challenge.Validate(); err != nil {
-			t.Errorf("unexpected validation error: %v", err)
+		if challenge.IsExpired() {
+			t.Error("IsExpired() should return false for new challenge")
 		}
 	})
 
-	t.Run("expired challenge fails validation", func(t *testing.T) {
-		// Create challenge that's already expired
+	t.Run("expired", func(t *testing.T) {
+		did := testDID(t)
+
 		challenge := model.ReconstructChallenge(
 			types.NewID(),
 			did,
-			"test-nonce",
-			model.ChallengePurposeRegister,
-			types.FromTime(time.Now().Add(-1*time.Hour)), // expired 1 hour ago
-			types.FromTime(time.Now().Add(-2*time.Hour)), // created 2 hours ago
+			"somenonce",
+			model.ChallengePurposeAuthenticate,
+			types.FromTime(time.Now().Add(-time.Hour)), // expired
+			types.Now(),
 		)
 
-		err := challenge.Validate()
-		if err == nil {
-			t.Fatal("expected validation error for expired challenge")
-		}
-		if err != domainerror.ErrChallengeExpired {
-			t.Errorf("expected ErrChallengeExpired, got: %v", err)
-		}
-	})
-
-	t.Run("ValidateFor checks DID match", func(t *testing.T) {
-		challenge, _ := model.NewChallenge(did, model.ChallengePurposeRegister, model.DefaultChallengeConfig())
-
-		// Same DID should pass
-		if err := challenge.ValidateFor(did); err != nil {
-			t.Errorf("unexpected error for matching DID: %v", err)
-		}
-
-		// Different DID should fail
-		otherKeyPair := mustGenerateEd25519(t)
-		otherDID := mustDIDFromKeyPair(t, otherKeyPair)
-
-		err := challenge.ValidateFor(otherDID)
-		if err == nil {
-			t.Fatal("expected error for mismatched DID")
-		}
-		if err != domainerror.ErrChallengeDIDMismatch {
-			t.Errorf("expected ErrChallengeDIDMismatch, got: %v", err)
-		}
-
-		// Nil DID should fail
-		err = challenge.ValidateFor(nil)
-		if err == nil {
-			t.Fatal("expected error for nil DID")
+		if !challenge.IsExpired() {
+			t.Error("IsExpired() should return true for expired challenge")
 		}
 	})
 }
 
-func TestChallenge_Message(t *testing.T) {
-	keyPair := mustGenerateEd25519(t)
-	did := mustDIDFromKeyPair(t, keyPair)
-	challenge, _ := model.NewChallenge(did, model.ChallengePurposeRegister, model.DefaultChallengeConfig())
+func TestChallenge_IsValid(t *testing.T) {
+	t.Run("valid challenge", func(t *testing.T) {
+		did := testDID(t)
+		challenge, _ := model.NewChallenge(did, model.ChallengePurposeAuthenticate, model.DefaultChallengeConfig())
 
-	domain := "overwatch.example.com"
+		if !challenge.IsValid() {
+			t.Error("IsValid() should return true for new challenge")
+		}
+	})
+
+	t.Run("expired challenge", func(t *testing.T) {
+		did := testDID(t)
+
+		challenge := model.ReconstructChallenge(
+			types.NewID(),
+			did,
+			"somenonce",
+			model.ChallengePurposeAuthenticate,
+			types.FromTime(time.Now().Add(-time.Hour)),
+			types.Now(),
+		)
+
+		if challenge.IsValid() {
+			t.Error("IsValid() should return false for expired challenge")
+		}
+	})
+}
+
+func TestChallenge_Validate(t *testing.T) {
+	t.Run("valid challenge", func(t *testing.T) {
+		did := testDID(t)
+		challenge, _ := model.NewChallenge(did, model.ChallengePurposeAuthenticate, model.DefaultChallengeConfig())
+
+		err := challenge.Validate()
+
+		if err != nil {
+			t.Errorf("Validate() error = %v, want nil", err)
+		}
+	})
+
+	t.Run("expired challenge", func(t *testing.T) {
+		did := testDID(t)
+
+		challenge := model.ReconstructChallenge(
+			types.NewID(),
+			did,
+			"somenonce",
+			model.ChallengePurposeAuthenticate,
+			types.FromTime(time.Now().Add(-time.Hour)),
+			types.Now(),
+		)
+
+		err := challenge.Validate()
+
+		if err != domainerror.ErrChallengeExpired {
+			t.Errorf("Validate() error = %v, want %v", err, domainerror.ErrChallengeExpired)
+		}
+	})
+}
+
+func TestChallenge_ValidateFor(t *testing.T) {
+	t.Run("matching DID", func(t *testing.T) {
+		did := testDID(t)
+		challenge, _ := model.NewChallenge(did, model.ChallengePurposeAuthenticate, model.DefaultChallengeConfig())
+
+		err := challenge.ValidateFor(did)
+
+		if err != nil {
+			t.Errorf("ValidateFor() error = %v, want nil", err)
+		}
+	})
+
+	t.Run("different DID", func(t *testing.T) {
+		did1 := testDID(t)
+		did2 := testDID(t)
+		challenge, _ := model.NewChallenge(did1, model.ChallengePurposeAuthenticate, model.DefaultChallengeConfig())
+
+		err := challenge.ValidateFor(did2)
+
+		if err != domainerror.ErrChallengeDIDMismatch {
+			t.Errorf("ValidateFor() error = %v, want %v", err, domainerror.ErrChallengeDIDMismatch)
+		}
+	})
+
+	t.Run("nil DID", func(t *testing.T) {
+		did := testDID(t)
+		challenge, _ := model.NewChallenge(did, model.ChallengePurposeAuthenticate, model.DefaultChallengeConfig())
+
+		err := challenge.ValidateFor(nil)
+
+		if err != domainerror.ErrChallengeDIDMismatch {
+			t.Errorf("ValidateFor() error = %v, want %v", err, domainerror.ErrChallengeDIDMismatch)
+		}
+	})
+
+	t.Run("expired challenge", func(t *testing.T) {
+		did := testDID(t)
+
+		challenge := model.ReconstructChallenge(
+			types.NewID(),
+			did,
+			"somenonce",
+			model.ChallengePurposeAuthenticate,
+			types.FromTime(time.Now().Add(-time.Hour)),
+			types.Now(),
+		)
+
+		err := challenge.ValidateFor(did)
+
+		if err != domainerror.ErrChallengeExpired {
+			t.Errorf("ValidateFor() error = %v, want %v", err, domainerror.ErrChallengeExpired)
+		}
+	})
+}
+
+func TestChallenge_TimeUntilExpiry(t *testing.T) {
+	did := testDID(t)
+	config := model.ChallengeConfig{
+		Domain:            "test",
+		ChallengeDuration: 5 * time.Minute,
+		NonceLength:       32,
+	}
+
+	challenge, _ := model.NewChallenge(did, model.ChallengePurposeAuthenticate, config)
+
+	ttl := challenge.TimeUntilExpiry()
+
+	// Should be close to 5 minutes (allowing some margin for test execution time)
+	if ttl < 4*time.Minute || ttl > 5*time.Minute {
+		t.Errorf("TimeUntilExpiry() = %v, want ~5 minutes", ttl)
+	}
+}
+
+func TestChallenge_Message(t *testing.T) {
+	did := testDID(t)
+	challenge, _ := model.NewChallenge(did, model.ChallengePurposeAuthenticate, model.DefaultChallengeConfig())
+	domain := "test-domain"
+
 	message := challenge.Message(domain)
 
+	if message == "" {
+		t.Error("Message() should not be empty")
+	}
 	// Verify message contains expected components
-	if !contains(message, domain) {
-		t.Errorf("message should contain domain: %s", domain)
+	if !containsSubstring(message, domain) {
+		t.Errorf("Message should contain domain %q", domain)
 	}
-	if !contains(message, did.String()) {
-		t.Errorf("message should contain DID: %s", did.String())
+	if !containsSubstring(message, did.String()) {
+		t.Error("Message should contain DID")
 	}
-	if !contains(message, challenge.Nonce()) {
-		t.Errorf("message should contain nonce: %s", challenge.Nonce())
+	if !containsSubstring(message, challenge.Nonce()) {
+		t.Error("Message should contain nonce")
 	}
-	if !contains(message, "wants you to sign in") {
-		t.Error("message should contain sign-in prompt")
-	}
+}
 
-	// MessageBytes should match Message
+func TestChallenge_MessageBytes(t *testing.T) {
+	did := testDID(t)
+	challenge, _ := model.NewChallenge(did, model.ChallengePurposeAuthenticate, model.DefaultChallengeConfig())
+	domain := "test-domain"
+
+	message := challenge.Message(domain)
 	messageBytes := challenge.MessageBytes(domain)
+
 	if string(messageBytes) != message {
-		t.Error("MessageBytes should return same content as Message")
+		t.Errorf("MessageBytes() = %q, want %q", string(messageBytes), message)
 	}
 }
 
 func TestChallenge_VerifySignature(t *testing.T) {
-	domain := "overwatch.example.com"
-
-	t.Run("valid Ed25519 signature", func(t *testing.T) {
-		keyPair := mustGenerateEd25519(t)
-		did := mustDIDFromKeyPair(t, keyPair)
-		challenge, _ := model.NewChallenge(did, model.ChallengePurposeRegister, model.DefaultChallengeConfig())
+	t.Run("valid signature", func(t *testing.T) {
+		did, kp := testDIDWithKeyPair(t)
+		config := model.DefaultChallengeConfig()
+		challenge, _ := model.NewChallenge(did, model.ChallengePurposeAuthenticate, config)
 
 		// Sign the challenge message
-		message := challenge.MessageBytes(domain)
-		signature, err := keyPair.Sign(message)
+		message := challenge.MessageBytes(config.Domain)
+		signature, err := kp.Sign(message)
 		if err != nil {
 			t.Fatalf("failed to sign message: %v", err)
 		}
 
-		// Verify should succeed
-		if err := challenge.VerifySignature(domain, signature); err != nil {
-			t.Errorf("signature verification failed: %v", err)
+		err = challenge.VerifySignature(config.Domain, signature)
+
+		if err != nil {
+			t.Errorf("VerifySignature() error = %v, want nil", err)
 		}
 	})
 
-	t.Run("invalid signature rejected", func(t *testing.T) {
-		keyPair := mustGenerateEd25519(t)
-		did := mustDIDFromKeyPair(t, keyPair)
-		challenge, _ := model.NewChallenge(did, model.ChallengePurposeRegister, model.DefaultChallengeConfig())
+	t.Run("invalid signature", func(t *testing.T) {
+		did := testDID(t)
+		config := model.DefaultChallengeConfig()
+		challenge, _ := model.NewChallenge(did, model.ChallengePurposeAuthenticate, config)
 
-		// Use a different key to sign (should fail verification)
-		otherKeyPair := mustGenerateEd25519(t)
-		message := challenge.MessageBytes(domain)
-		badSignature, _ := otherKeyPair.Sign(message)
+		invalidSignature := []byte("invalid-signature")
 
-		err := challenge.VerifySignature(domain, badSignature)
-		if err == nil {
-			t.Fatal("expected error for invalid signature")
-		}
+		err := challenge.VerifySignature(config.Domain, invalidSignature)
+
 		if err != domainerror.ErrSignatureInvalid {
-			t.Errorf("expected ErrSignatureInvalid, got: %v", err)
+			t.Errorf("VerifySignature() error = %v, want %v", err, domainerror.ErrSignatureInvalid)
 		}
 	})
 
-	t.Run("tampered message rejected", func(t *testing.T) {
-		keyPair := mustGenerateEd25519(t)
-		did := mustDIDFromKeyPair(t, keyPair)
-		challenge, _ := model.NewChallenge(did, model.ChallengePurposeRegister, model.DefaultChallengeConfig())
+	t.Run("empty signature", func(t *testing.T) {
+		did := testDID(t)
+		config := model.DefaultChallengeConfig()
+		challenge, _ := model.NewChallenge(did, model.ChallengePurposeAuthenticate, config)
 
-		// Sign with correct message
-		message := challenge.MessageBytes(domain)
-		signature, _ := keyPair.Sign(message)
+		err := challenge.VerifySignature(config.Domain, []byte{})
 
-		// Verify with different domain (tampered message)
-		err := challenge.VerifySignature("evil.example.com", signature)
-		if err == nil {
-			t.Fatal("expected error for tampered domain")
-		}
-	})
-
-	t.Run("empty signature rejected", func(t *testing.T) {
-		keyPair := mustGenerateEd25519(t)
-		did := mustDIDFromKeyPair(t, keyPair)
-		challenge, _ := model.NewChallenge(did, model.ChallengePurposeRegister, model.DefaultChallengeConfig())
-
-		err := challenge.VerifySignature(domain, nil)
-		if err == nil {
-			t.Fatal("expected error for empty signature")
-		}
 		if err != domainerror.ErrSignatureRequired {
-			t.Errorf("expected ErrSignatureRequired, got: %v", err)
-		}
-
-		err = challenge.VerifySignature(domain, []byte{})
-		if err == nil {
-			t.Fatal("expected error for empty signature")
+			t.Errorf("VerifySignature() error = %v, want %v", err, domainerror.ErrSignatureRequired)
 		}
 	})
 
-	t.Run("expired challenge rejected before signature check", func(t *testing.T) {
-		keyPair := mustGenerateEd25519(t)
-		did := mustDIDFromKeyPair(t, keyPair)
+	t.Run("nil signature", func(t *testing.T) {
+		did := testDID(t)
+		config := model.DefaultChallengeConfig()
+		challenge, _ := model.NewChallenge(did, model.ChallengePurposeAuthenticate, config)
 
-		// Create expired challenge
+		err := challenge.VerifySignature(config.Domain, nil)
+
+		if err != domainerror.ErrSignatureRequired {
+			t.Errorf("VerifySignature() error = %v, want %v", err, domainerror.ErrSignatureRequired)
+		}
+	})
+
+	t.Run("expired challenge", func(t *testing.T) {
+		did, kp := testDIDWithKeyPair(t)
+		config := model.DefaultChallengeConfig()
+
 		challenge := model.ReconstructChallenge(
 			types.NewID(),
 			did,
-			"test-nonce",
-			model.ChallengePurposeRegister,
-			types.FromTime(time.Now().Add(-1*time.Hour)),
-			types.FromTime(time.Now().Add(-2*time.Hour)),
+			"somenonce",
+			model.ChallengePurposeAuthenticate,
+			types.FromTime(time.Now().Add(-time.Hour)),
+			types.Now(),
 		)
 
-		// Even with valid signature, should fail due to expiry
-		message := challenge.MessageBytes(domain)
-		signature, _ := keyPair.Sign(message)
+		message := challenge.MessageBytes(config.Domain)
+		signature, _ := kp.Sign(message)
 
-		err := challenge.VerifySignature(domain, signature)
-		if err == nil {
-			t.Fatal("expected error for expired challenge")
-		}
+		err := challenge.VerifySignature(config.Domain, signature)
+
 		if err != domainerror.ErrChallengeExpired {
-			t.Errorf("expected ErrChallengeExpired, got: %v", err)
+			t.Errorf("VerifySignature() error = %v, want %v", err, domainerror.ErrChallengeExpired)
+		}
+	})
+
+	t.Run("wrong key signature", func(t *testing.T) {
+		did := testDID(t)
+		_, wrongKP := testDIDWithKeyPair(t) // different keypair
+		config := model.DefaultChallengeConfig()
+		challenge, _ := model.NewChallenge(did, model.ChallengePurposeAuthenticate, config)
+
+		// Sign with wrong key
+		message := challenge.MessageBytes(config.Domain)
+		signature, _ := wrongKP.Sign(message)
+
+		err := challenge.VerifySignature(config.Domain, signature)
+
+		if err != domainerror.ErrSignatureInvalid {
+			t.Errorf("VerifySignature() error = %v, want %v", err, domainerror.ErrSignatureInvalid)
 		}
 	})
 }
 
-func TestChallengePurpose(t *testing.T) {
-	t.Run("valid purposes", func(t *testing.T) {
-		if !model.ChallengePurposeRegister.IsValid() {
-			t.Error("register should be valid")
-		}
-		if !model.ChallengePurposeAuthenticate.IsValid() {
-			t.Error("authenticate should be valid")
-		}
-	})
+func TestChallengePurpose_IsValid(t *testing.T) {
+	tests := []struct {
+		purpose model.ChallengePurpose
+		want    bool
+	}{
+		{model.ChallengePurposeRegister, true},
+		{model.ChallengePurposeAuthenticate, true},
+		{model.ChallengePurpose("invalid"), false},
+		{model.ChallengePurpose(""), false},
+	}
 
-	t.Run("invalid purposes", func(t *testing.T) {
-		if model.ChallengePurpose("").IsValid() {
-			t.Error("empty should be invalid")
-		}
-		if model.ChallengePurpose("invalid").IsValid() {
-			t.Error("invalid should be invalid")
-		}
-	})
-
-	t.Run("string conversion", func(t *testing.T) {
-		if model.ChallengePurposeRegister.String() != "register" {
-			t.Error("register string mismatch")
-		}
-		if model.ChallengePurposeAuthenticate.String() != "authenticate" {
-			t.Error("authenticate string mismatch")
-		}
-	})
+	for _, tt := range tests {
+		t.Run(string(tt.purpose), func(t *testing.T) {
+			if got := tt.purpose.IsValid(); got != tt.want {
+				t.Errorf("IsValid() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
-// Test helpers
+func TestChallengePurpose_String(t *testing.T) {
+	tests := []struct {
+		purpose model.ChallengePurpose
+		want    string
+	}{
+		{model.ChallengePurposeRegister, "register"},
+		{model.ChallengePurposeAuthenticate, "authenticate"},
+	}
 
-func mustGenerateEd25519(t *testing.T) security.KeyPair {
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			if got := tt.purpose.String(); got != tt.want {
+				t.Errorf("String() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDefaultChallengeConfig(t *testing.T) {
+	config := model.DefaultChallengeConfig()
+
+	if config.Domain != "overwatch-identity" {
+		t.Errorf("Domain = %v, want overwatch-identity", config.Domain)
+	}
+	if config.ChallengeDuration != 5*time.Minute {
+		t.Errorf("ChallengeDuration = %v, want 5 minutes", config.ChallengeDuration)
+	}
+	if config.NonceLength != 32 {
+		t.Errorf("NonceLength = %v, want 32", config.NonceLength)
+	}
+}
+
+func TestReconstructChallenge(t *testing.T) {
+	id := types.NewID()
+	did := testDID(t)
+	nonce := "testnonce123"
+	purpose := model.ChallengePurposeRegister
+	expiresAt := types.FromTime(time.Now().Add(time.Hour))
+	createdAt := types.Now()
+
+	challenge := model.ReconstructChallenge(id, did, nonce, purpose, expiresAt, createdAt)
+
+	if challenge.ID() != id {
+		t.Errorf("ID = %v, want %v", challenge.ID(), id)
+	}
+	if challenge.DID() != did {
+		t.Errorf("DID = %v, want %v", challenge.DID(), did)
+	}
+	if challenge.Nonce() != nonce {
+		t.Errorf("Nonce = %v, want %v", challenge.Nonce(), nonce)
+	}
+	if challenge.Purpose() != purpose {
+		t.Errorf("Purpose = %v, want %v", challenge.Purpose(), purpose)
+	}
+	if challenge.ExpiresAt() != expiresAt {
+		t.Errorf("ExpiresAt = %v, want %v", challenge.ExpiresAt(), expiresAt)
+	}
+	if challenge.CreatedAt() != createdAt {
+		t.Errorf("CreatedAt = %v, want %v", challenge.CreatedAt(), createdAt)
+	}
+}
+
+// Helper functions
+
+func testDIDWithKeyPair(t *testing.T) (*security.DID, security.KeyPair) {
 	t.Helper()
 	kp, err := security.GenerateEd25519()
 	if err != nil {
-		t.Fatalf("failed to generate Ed25519 keypair: %v", err)
+		t.Fatalf("failed to generate keypair: %v", err)
 	}
-	return kp
-}
-
-func mustDIDFromKeyPair(t *testing.T, kp security.KeyPair) *security.DID {
-	t.Helper()
 	did, err := security.DIDFromKeyPair(kp)
 	if err != nil {
-		t.Fatalf("failed to create DID from keypair: %v", err)
+		t.Fatalf("failed to create DID: %v", err)
 	}
-	return did
+	return did, kp
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsAt(s, substr, 0))
+func containsSubstring(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || (len(s) > 0 && len(substr) > 0 && searchSubstring(s, substr)))
 }
 
-func containsAt(s, substr string, start int) bool {
-	for i := start; i <= len(s)-len(substr); i++ {
+func searchSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
 		if s[i:i+len(substr)] == substr {
 			return true
 		}

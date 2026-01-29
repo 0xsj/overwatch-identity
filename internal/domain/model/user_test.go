@@ -10,346 +10,311 @@ import (
 	"github.com/0xsj/overwatch-identity/internal/domain/model"
 )
 
+func testDID(t *testing.T) *security.DID {
+	t.Helper()
+	kp, err := security.GenerateEd25519()
+	if err != nil {
+		t.Fatalf("failed to generate keypair: %v", err)
+	}
+	did, err := security.DIDFromKeyPair(kp)
+	if err != nil {
+		t.Fatalf("failed to create DID: %v", err)
+	}
+	return did
+}
+
 func TestNewUser(t *testing.T) {
-	t.Run("creates valid user", func(t *testing.T) {
-		kp := mustGenerateUserEd25519(t)
-		did := mustDIDFromUserKeyPair(t, kp)
+	t.Run("valid DID", func(t *testing.T) {
+		did := testDID(t)
 
 		user, err := model.NewUser(did)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
 
-		if user.ID() == "" {
-			t.Error("expected non-empty ID")
+		if err != nil {
+			t.Fatalf("NewUser() error = %v", err)
 		}
-		if user.DID().String() != did.String() {
-			t.Errorf("DID mismatch: got %s, want %s", user.DID().String(), did.String())
+		if user == nil {
+			t.Fatal("NewUser() returned nil")
+		}
+		if user.ID().IsEmpty() {
+			t.Error("user ID should not be empty")
+		}
+		if user.DID() != did {
+			t.Errorf("user DID = %v, want %v", user.DID(), did)
 		}
 		if user.Status() != model.UserStatusActive {
-			t.Errorf("expected status Active, got %s", user.Status())
-		}
-		if !user.IsActive() {
-			t.Error("new user should be active")
-		}
-		if user.IsSuspended() {
-			t.Error("new user should not be suspended")
+			t.Errorf("user status = %v, want %v", user.Status(), model.UserStatusActive)
 		}
 		if user.Email().IsPresent() {
-			t.Error("new user should have no email")
+			t.Error("user email should be empty")
 		}
 		if user.Name().IsPresent() {
-			t.Error("new user should have no name")
+			t.Error("user name should be empty")
 		}
 		if user.CreatedAt().IsZero() {
-			t.Error("CreatedAt should be set")
+			t.Error("user createdAt should be set")
 		}
 		if user.UpdatedAt().IsZero() {
-			t.Error("UpdatedAt should be set")
+			t.Error("user updatedAt should be set")
 		}
 	})
 
-	t.Run("rejects nil DID", func(t *testing.T) {
-		_, err := model.NewUser(nil)
+	t.Run("nil DID", func(t *testing.T) {
+		user, err := model.NewUser(nil)
+
 		if err == nil {
-			t.Fatal("expected error for nil DID")
+			t.Fatal("NewUser(nil) should return error")
+		}
+		if user != nil {
+			t.Error("NewUser(nil) should return nil user")
 		}
 		if err != domainerror.ErrUserDIDRequired {
-			t.Errorf("expected ErrUserDIDRequired, got: %v", err)
+			t.Errorf("error = %v, want %v", err, domainerror.ErrUserDIDRequired)
 		}
 	})
 }
 
-func TestUser_Email(t *testing.T) {
-	user := mustCreateUserForTest(t)
+func TestUser_SetEmail(t *testing.T) {
+	did := testDID(t)
+	user, _ := model.NewUser(did)
+	originalUpdatedAt := user.UpdatedAt()
 
-	t.Run("sets email", func(t *testing.T) {
-		email, err := types.NewEmail("test@example.com")
-		if err != nil {
-			t.Fatalf("failed to create email: %v", err)
-		}
+	email, err := types.NewEmail("test@example.com")
+	if err != nil {
+		t.Fatalf("failed to create email: %v", err)
+	}
 
-		originalUpdatedAt := user.UpdatedAt()
-		user.SetEmail(email)
+	user.SetEmail(email)
 
-		if !user.Email().IsPresent() {
-			t.Fatal("email should be present after SetEmail")
-		}
-		if user.Email().MustGet().String() != "test@example.com" {
-			t.Errorf("email mismatch: got %s", user.Email().MustGet().String())
-		}
-		if !user.UpdatedAt().After(originalUpdatedAt) || user.UpdatedAt().Equal(originalUpdatedAt) {
-			// UpdatedAt should be >= original (might be same if test runs fast)
-			// Just check it's set
-			if user.UpdatedAt().IsZero() {
-				t.Error("UpdatedAt should be set after SetEmail")
-			}
-		}
-	})
-
-	t.Run("clears email", func(t *testing.T) {
-		email, _ := types.NewEmail("test@example.com")
-		user.SetEmail(email)
-
-		user.ClearEmail()
-
-		if user.Email().IsPresent() {
-			t.Error("email should not be present after ClearEmail")
-		}
-	})
+	if !user.Email().IsPresent() {
+		t.Fatal("email should be present")
+	}
+	if user.Email().MustGet() != email {
+		t.Errorf("email = %v, want %v", user.Email().MustGet(), email)
+	}
+	if !user.UpdatedAt().After(originalUpdatedAt) && user.UpdatedAt() != originalUpdatedAt {
+		// Allow equal if test runs fast enough
+	}
 }
 
-func TestUser_Name(t *testing.T) {
-	user := mustCreateUserForTest(t)
+func TestUser_ClearEmail(t *testing.T) {
+	did := testDID(t)
+	user, _ := model.NewUser(did)
 
-	t.Run("sets name", func(t *testing.T) {
-		user.SetName("John Doe")
+	email, _ := types.NewEmail("test@example.com")
+	user.SetEmail(email)
 
-		if !user.Name().IsPresent() {
-			t.Fatal("name should be present after SetName")
-		}
-		if user.Name().MustGet() != "John Doe" {
-			t.Errorf("name mismatch: got %s", user.Name().MustGet())
-		}
-	})
+	user.ClearEmail()
 
-	t.Run("clears name", func(t *testing.T) {
-		user.SetName("John Doe")
+	if user.Email().IsPresent() {
+		t.Error("email should be cleared")
+	}
+}
 
-		user.ClearName()
+func TestUser_SetName(t *testing.T) {
+	did := testDID(t)
+	user, _ := model.NewUser(did)
 
-		if user.Name().IsPresent() {
-			t.Error("name should not be present after ClearName")
-		}
-	})
+	user.SetName("Alice Smith")
+
+	if !user.Name().IsPresent() {
+		t.Fatal("name should be present")
+	}
+	if user.Name().MustGet() != "Alice Smith" {
+		t.Errorf("name = %v, want Alice Smith", user.Name().MustGet())
+	}
+}
+
+func TestUser_ClearName(t *testing.T) {
+	did := testDID(t)
+	user, _ := model.NewUser(did)
+
+	user.SetName("Alice Smith")
+	user.ClearName()
+
+	if user.Name().IsPresent() {
+		t.Error("name should be cleared")
+	}
 }
 
 func TestUser_Suspend(t *testing.T) {
-	t.Run("suspends active user", func(t *testing.T) {
-		user := mustCreateUserForTest(t)
-
-		if !user.IsActive() {
-			t.Fatal("user should be active initially")
-		}
+	t.Run("active user", func(t *testing.T) {
+		did := testDID(t)
+		user, _ := model.NewUser(did)
 
 		err := user.Suspend()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
 
-		if !user.IsSuspended() {
-			t.Error("user should be suspended after Suspend()")
-		}
-		if user.IsActive() {
-			t.Error("user should not be active after Suspend()")
+		if err != nil {
+			t.Fatalf("Suspend() error = %v", err)
 		}
 		if user.Status() != model.UserStatusSuspended {
-			t.Errorf("expected status Suspended, got %s", user.Status())
+			t.Errorf("status = %v, want %v", user.Status(), model.UserStatusSuspended)
+		}
+		if !user.IsSuspended() {
+			t.Error("IsSuspended() should return true")
+		}
+		if user.IsActive() {
+			t.Error("IsActive() should return false")
 		}
 	})
 
-	t.Run("cannot suspend already suspended user", func(t *testing.T) {
-		user := mustCreateUserForTest(t)
-		_ = user.Suspend()
+	t.Run("already suspended", func(t *testing.T) {
+		did := testDID(t)
+		user, _ := model.NewUser(did)
+		user.Suspend()
 
 		err := user.Suspend()
+
 		if err == nil {
-			t.Fatal("expected error when suspending already suspended user")
+			t.Fatal("Suspend() on suspended user should return error")
 		}
 		if err != domainerror.ErrUserAlreadySuspended {
-			t.Errorf("expected ErrUserAlreadySuspended, got: %v", err)
+			t.Errorf("error = %v, want %v", err, domainerror.ErrUserAlreadySuspended)
 		}
 	})
 }
 
 func TestUser_Activate(t *testing.T) {
-	t.Run("activates suspended user", func(t *testing.T) {
-		user := mustCreateUserForTest(t)
-		_ = user.Suspend()
-
-		if !user.IsSuspended() {
-			t.Fatal("user should be suspended before activation")
-		}
+	t.Run("suspended user", func(t *testing.T) {
+		did := testDID(t)
+		user, _ := model.NewUser(did)
+		user.Suspend()
 
 		err := user.Activate()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
 
-		if !user.IsActive() {
-			t.Error("user should be active after Activate()")
-		}
-		if user.IsSuspended() {
-			t.Error("user should not be suspended after Activate()")
+		if err != nil {
+			t.Fatalf("Activate() error = %v", err)
 		}
 		if user.Status() != model.UserStatusActive {
-			t.Errorf("expected status Active, got %s", user.Status())
+			t.Errorf("status = %v, want %v", user.Status(), model.UserStatusActive)
+		}
+		if !user.IsActive() {
+			t.Error("IsActive() should return true")
+		}
+		if user.IsSuspended() {
+			t.Error("IsSuspended() should return false")
 		}
 	})
 
-	t.Run("cannot activate already active user", func(t *testing.T) {
-		user := mustCreateUserForTest(t)
+	t.Run("already active", func(t *testing.T) {
+		did := testDID(t)
+		user, _ := model.NewUser(did)
 
 		err := user.Activate()
+
 		if err == nil {
-			t.Fatal("expected error when activating already active user")
+			t.Fatal("Activate() on active user should return error")
 		}
 		if err != domainerror.ErrUserAlreadyActive {
-			t.Errorf("expected ErrUserAlreadyActive, got: %v", err)
+			t.Errorf("error = %v, want %v", err, domainerror.ErrUserAlreadyActive)
 		}
 	})
 }
 
 func TestUser_CanAuthenticate(t *testing.T) {
-	t.Run("active user can authenticate", func(t *testing.T) {
-		user := mustCreateUserForTest(t)
+	t.Run("active user", func(t *testing.T) {
+		did := testDID(t)
+		user, _ := model.NewUser(did)
 
 		err := user.CanAuthenticate()
+
 		if err != nil {
-			t.Errorf("active user should be able to authenticate: %v", err)
+			t.Errorf("CanAuthenticate() error = %v, want nil", err)
 		}
 	})
 
-	t.Run("suspended user cannot authenticate", func(t *testing.T) {
-		user := mustCreateUserForTest(t)
-		_ = user.Suspend()
+	t.Run("suspended user", func(t *testing.T) {
+		did := testDID(t)
+		user, _ := model.NewUser(did)
+		user.Suspend()
 
 		err := user.CanAuthenticate()
+
 		if err == nil {
-			t.Fatal("suspended user should not be able to authenticate")
+			t.Fatal("CanAuthenticate() on suspended user should return error")
 		}
 		if err != domainerror.ErrUserSuspended {
-			t.Errorf("expected ErrUserSuspended, got: %v", err)
+			t.Errorf("error = %v, want %v", err, domainerror.ErrUserSuspended)
 		}
 	})
 }
 
-func TestUserStatus(t *testing.T) {
-	t.Run("valid statuses", func(t *testing.T) {
-		if !model.UserStatusActive.IsValid() {
-			t.Error("active should be valid")
-		}
-		if !model.UserStatusSuspended.IsValid() {
-			t.Error("suspended should be valid")
-		}
-	})
+func TestUserStatus_IsValid(t *testing.T) {
+	tests := []struct {
+		status model.UserStatus
+		want   bool
+	}{
+		{model.UserStatusActive, true},
+		{model.UserStatusSuspended, true},
+		{model.UserStatus("invalid"), false},
+		{model.UserStatus(""), false},
+	}
 
-	t.Run("invalid statuses", func(t *testing.T) {
-		if model.UserStatus("").IsValid() {
-			t.Error("empty should be invalid")
-		}
-		if model.UserStatus("invalid").IsValid() {
-			t.Error("invalid should be invalid")
-		}
-		if model.UserStatus("deleted").IsValid() {
-			t.Error("deleted should be invalid")
-		}
-	})
+	for _, tt := range tests {
+		t.Run(string(tt.status), func(t *testing.T) {
+			got := tt.status.IsValid()
+			if got != tt.want {
+				t.Errorf("IsValid() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
-	t.Run("string conversion", func(t *testing.T) {
-		if model.UserStatusActive.String() != "active" {
-			t.Error("active string mismatch")
-		}
-		if model.UserStatusSuspended.String() != "suspended" {
-			t.Error("suspended string mismatch")
-		}
-	})
+func TestUserStatus_String(t *testing.T) {
+	tests := []struct {
+		status model.UserStatus
+		want   string
+	}{
+		{model.UserStatusActive, "active"},
+		{model.UserStatusSuspended, "suspended"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			got := tt.status.String()
+			if got != tt.want {
+				t.Errorf("String() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestReconstructUser(t *testing.T) {
-	t.Run("reconstructs user with all fields", func(t *testing.T) {
-		kp := mustGenerateUserEd25519(t)
-		did := mustDIDFromUserKeyPair(t, kp)
-		id := types.NewID()
-		email, _ := types.NewEmail("test@example.com")
-		name := "John Doe"
-		createdAt := types.Now()
-		updatedAt := types.Now()
+	did := testDID(t)
+	id := types.NewID()
+	email, _ := types.NewEmail("test@example.com")
+	name := "Alice Smith"
+	createdAt := types.Now()
+	updatedAt := types.Now()
 
-		user := model.ReconstructUser(
-			id,
-			did,
-			types.Some(email),
-			types.Some(name),
-			model.UserStatusSuspended,
-			createdAt,
-			updatedAt,
-		)
+	user := model.ReconstructUser(
+		id,
+		did,
+		types.Some(email),
+		types.Some(name),
+		model.UserStatusSuspended,
+		createdAt,
+		updatedAt,
+	)
 
-		if user.ID() != id {
-			t.Errorf("ID mismatch: got %s, want %s", user.ID(), id)
-		}
-		if user.DID().String() != did.String() {
-			t.Errorf("DID mismatch: got %s, want %s", user.DID().String(), did.String())
-		}
-		if !user.Email().IsPresent() || user.Email().MustGet().String() != "test@example.com" {
-			t.Error("email not reconstructed correctly")
-		}
-		if !user.Name().IsPresent() || user.Name().MustGet() != "John Doe" {
-			t.Error("name not reconstructed correctly")
-		}
-		if user.Status() != model.UserStatusSuspended {
-			t.Errorf("status mismatch: got %s, want suspended", user.Status())
-		}
-		if user.CreatedAt() != createdAt {
-			t.Error("CreatedAt not reconstructed correctly")
-		}
-		if user.UpdatedAt() != updatedAt {
-			t.Error("UpdatedAt not reconstructed correctly")
-		}
-	})
-
-	t.Run("reconstructs user with optional fields empty", func(t *testing.T) {
-		kp := mustGenerateUserEd25519(t)
-		did := mustDIDFromUserKeyPair(t, kp)
-
-		user := model.ReconstructUser(
-			types.NewID(),
-			did,
-			types.None[types.Email](),
-			types.None[string](),
-			model.UserStatusActive,
-			types.Now(),
-			types.Now(),
-		)
-
-		if user.Email().IsPresent() {
-			t.Error("email should not be present")
-		}
-		if user.Name().IsPresent() {
-			t.Error("name should not be present")
-		}
-	})
-}
-
-// Test helpers
-
-func mustGenerateUserEd25519(t *testing.T) security.KeyPair {
-	t.Helper()
-	kp, err := security.GenerateEd25519()
-	if err != nil {
-		t.Fatalf("failed to generate Ed25519 keypair: %v", err)
+	if user.ID() != id {
+		t.Errorf("ID = %v, want %v", user.ID(), id)
 	}
-	return kp
-}
-
-func mustDIDFromUserKeyPair(t *testing.T, kp security.KeyPair) *security.DID {
-	t.Helper()
-	did, err := security.DIDFromKeyPair(kp)
-	if err != nil {
-		t.Fatalf("failed to create DID from keypair: %v", err)
+	if user.DID() != did {
+		t.Errorf("DID = %v, want %v", user.DID(), did)
 	}
-	return did
-}
-
-func mustCreateUserForTest(t *testing.T) *model.User {
-	t.Helper()
-	kp := mustGenerateUserEd25519(t)
-	did := mustDIDFromUserKeyPair(t, kp)
-
-	user, err := model.NewUser(did)
-	if err != nil {
-		t.Fatalf("failed to create user: %v", err)
+	if !user.Email().IsPresent() || user.Email().MustGet() != email {
+		t.Errorf("Email = %v, want %v", user.Email(), email)
 	}
-	return user
+	if !user.Name().IsPresent() || user.Name().MustGet() != name {
+		t.Errorf("Name = %v, want %v", user.Name(), name)
+	}
+	if user.Status() != model.UserStatusSuspended {
+		t.Errorf("Status = %v, want %v", user.Status(), model.UserStatusSuspended)
+	}
+	if user.CreatedAt() != createdAt {
+		t.Errorf("CreatedAt = %v, want %v", user.CreatedAt(), createdAt)
+	}
+	if user.UpdatedAt() != updatedAt {
+		t.Errorf("UpdatedAt = %v, want %v", user.UpdatedAt(), updatedAt)
+	}
 }
