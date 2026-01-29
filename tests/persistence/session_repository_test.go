@@ -393,38 +393,51 @@ func TestSessionRepository_RevokeAllByUserID(t *testing.T) {
 func TestSessionRepository_DeleteExpired(t *testing.T) {
 	truncateTables(t)
 	ctx := getContext()
+
 	userRepo := postgres.NewUserRepository(getPool())
 	sessionRepo := postgres.NewSessionRepository(getPool())
 
+	// Create user
 	user := createTestUser(t)
 	userRepo.Create(ctx, user)
 
-	// Create active session
-	activeSession := createTestSession(t, user)
-	sessionRepo.Create(ctx, activeSession)
-
-	// Create expired session via direct SQL (since model won't allow creating expired)
+	// Create session that expired MORE than 30 days ago
 	expiredSession := model.ReconstructSession(
 		types.NewID(),
 		user.ID(),
 		user.DID(),
 		types.None[types.ID](),
-		"expiredhash",
-		types.FromTime(time.Now().Add(-time.Hour)), // expired
-		types.FromTime(time.Now().Add(-2*time.Hour)),
+		"expired_hash",
+		types.FromTime(time.Now().Add(-31*24*time.Hour)), // Expired 31 days ago
+		types.FromTime(time.Now().Add(-60*24*time.Hour)), // Created 60 days ago
 		types.None[types.Timestamp](),
 	)
-	// Need to insert directly since Create uses the params
-	pool := getPool()
-	_, err := pool.Exec(ctx, `
-		INSERT INTO sessions (id, user_id, user_did, tenant_id, refresh_token_hash, expires_at, created_at, revoked_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, expiredSession.ID().String(), expiredSession.UserID().String(), expiredSession.UserDID().String(),
-		nil, expiredSession.RefreshTokenHash(), expiredSession.ExpiresAt().Time(), expiredSession.CreatedAt().Time(), nil)
-	if err != nil {
-		t.Fatalf("failed to insert expired session: %v", err)
-	}
+	sessionRepo.Create(ctx, expiredSession)
 
+	// Create session that expired recently (should NOT be deleted)
+	recentlyExpiredSession := model.ReconstructSession(
+		types.NewID(),
+		user.ID(),
+		user.DID(),
+		types.None[types.ID](),
+		"recently_expired_hash",
+		types.FromTime(time.Now().Add(-1*time.Hour)), // Expired 1 hour ago
+		types.FromTime(time.Now().Add(-24*time.Hour)),
+		types.None[types.Timestamp](),
+	)
+	sessionRepo.Create(ctx, recentlyExpiredSession)
+
+	// Create active session (should NOT be deleted)
+	activeSession, _ := model.NewSession(
+		user.ID(),
+		user.DID(),
+		types.None[types.ID](),
+		"active_hash",
+		model.DefaultSessionConfig(),
+	)
+	sessionRepo.Create(ctx, activeSession)
+
+	// Delete expired sessions
 	count, err := sessionRepo.DeleteExpired(ctx)
 
 	if err != nil {
@@ -434,10 +447,22 @@ func TestSessionRepository_DeleteExpired(t *testing.T) {
 		t.Errorf("DeleteExpired() = %d, want 1", count)
 	}
 
+	// Verify only the old expired session was deleted
+	_, err = sessionRepo.FindByID(ctx, expiredSession.ID())
+	if err == nil {
+		t.Error("Old expired session should be deleted")
+	}
+
+	// Recently expired session should still exist
+	_, err = sessionRepo.FindByID(ctx, recentlyExpiredSession.ID())
+	if err != nil {
+		t.Error("Recently expired session should still exist")
+	}
+
 	// Active session should still exist
 	_, err = sessionRepo.FindByID(ctx, activeSession.ID())
 	if err != nil {
-		t.Errorf("Active session should still exist: %v", err)
+		t.Error("Active session should still exist")
 	}
 }
 

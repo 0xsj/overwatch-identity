@@ -171,82 +171,117 @@ func TestSession_Revoke(t *testing.T) {
 }
 
 func TestSession_Refresh(t *testing.T) {
-	t.Run("valid session", func(t *testing.T) {
-		userID := types.NewID()
-		userDID := testDID(t)
-		session, _ := model.NewSession(userID, userDID, types.None[types.ID](), "oldhash", model.DefaultSessionConfig())
-		originalExpiry := session.ExpiresAt()
+	tests := []struct {
+		name        string
+		setup       func() *model.Session
+		newHash     string
+		duration    time.Duration
+		wantErr     error
+		checkResult func(t *testing.T, s *model.Session, originalExpiry types.Timestamp)
+	}{
+		{
+			name: "valid_session",
+			setup: func() *model.Session {
+				kp, _ := security.GenerateEd25519()
+				did, _ := security.DIDFromKeyPair(kp)
+				// Create session with SHORT duration so refresh extends it
+				config := model.SessionConfig{SessionDuration: 1 * time.Minute}
+				session, _ := model.NewSession(
+					types.NewID(),
+					did,
+					types.None[types.ID](),
+					"original_hash",
+					config,
+				)
+				return session
+			},
+			newHash:  "new_refresh_hash",
+			duration: 2 * time.Hour, // Longer than original 1 minute
+			wantErr:  nil,
+			checkResult: func(t *testing.T, s *model.Session, originalExpiry types.Timestamp) {
+				if s.RefreshTokenHash() != "new_refresh_hash" {
+					t.Errorf("RefreshTokenHash = %v, want new_refresh_hash", s.RefreshTokenHash())
+				}
+				if !s.ExpiresAt().After(originalExpiry) {
+					t.Errorf("ExpiresAt should be extended")
+				}
+			},
+		},
+		{
+			name: "empty_new_hash",
+			setup: func() *model.Session {
+				kp, _ := security.GenerateEd25519()
+				did, _ := security.DIDFromKeyPair(kp)
+				session, _ := model.NewSession(
+					types.NewID(),
+					did,
+					types.None[types.ID](),
+					"original_hash",
+					model.DefaultSessionConfig(),
+				)
+				return session
+			},
+			newHash:  "",
+			duration: 2 * time.Hour,
+			wantErr:  domainerror.ErrRefreshTokenInvalid,
+		},
+		{
+			name: "revoked_session",
+			setup: func() *model.Session {
+				kp, _ := security.GenerateEd25519()
+				did, _ := security.DIDFromKeyPair(kp)
+				session, _ := model.NewSession(
+					types.NewID(),
+					did,
+					types.None[types.ID](),
+					"original_hash",
+					model.DefaultSessionConfig(),
+				)
+				session.Revoke()
+				return session
+			},
+			newHash:  "new_hash",
+			duration: 2 * time.Hour,
+			wantErr:  domainerror.ErrSessionRevoked,
+		},
+		{
+			name: "expired_session",
+			setup: func() *model.Session {
+				kp, _ := security.GenerateEd25519()
+				did, _ := security.DIDFromKeyPair(kp)
+				return model.ReconstructSession(
+					types.NewID(),
+					types.NewID(),
+					did,
+					types.None[types.ID](),
+					"original_hash",
+					types.FromTime(time.Now().Add(-1*time.Hour)), // Expired
+					types.Now(),
+					types.None[types.Timestamp](),
+				)
+			},
+			newHash:  "new_hash",
+			duration: 2 * time.Hour,
+			wantErr:  domainerror.ErrSessionExpired,
+		},
+	}
 
-		newDuration := 24 * time.Hour
-		err := session.Refresh("newhash", newDuration)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			session := tt.setup()
+			originalExpiry := session.ExpiresAt()
 
-		if err != nil {
-			t.Fatalf("Refresh() error = %v", err)
-		}
-		if session.RefreshTokenHash() != "newhash" {
-			t.Errorf("RefreshTokenHash = %v, want newhash", session.RefreshTokenHash())
-		}
-		if !session.ExpiresAt().After(originalExpiry) {
-			t.Error("ExpiresAt should be extended")
-		}
-	})
+			err := session.Refresh(tt.newHash, tt.duration)
 
-	t.Run("empty new hash", func(t *testing.T) {
-		userID := types.NewID()
-		userDID := testDID(t)
-		session, _ := model.NewSession(userID, userDID, types.None[types.ID](), "oldhash", model.DefaultSessionConfig())
+			if err != tt.wantErr {
+				t.Errorf("Refresh() error = %v, wantErr %v", err, tt.wantErr)
+			}
 
-		err := session.Refresh("", 24*time.Hour)
-
-		if err == nil {
-			t.Fatal("Refresh() with empty hash should return error")
-		}
-		if err != domainerror.ErrRefreshTokenInvalid {
-			t.Errorf("error = %v, want %v", err, domainerror.ErrRefreshTokenInvalid)
-		}
-	})
-
-	t.Run("revoked session", func(t *testing.T) {
-		userID := types.NewID()
-		userDID := testDID(t)
-		session, _ := model.NewSession(userID, userDID, types.None[types.ID](), "hash", model.DefaultSessionConfig())
-		session.Revoke()
-
-		err := session.Refresh("newhash", 24*time.Hour)
-
-		if err == nil {
-			t.Fatal("Refresh() on revoked session should return error")
-		}
-		if err != domainerror.ErrSessionRevoked {
-			t.Errorf("error = %v, want %v", err, domainerror.ErrSessionRevoked)
-		}
-	})
-
-	t.Run("expired session", func(t *testing.T) {
-		userID := types.NewID()
-		userDID := testDID(t)
-
-		// Create an expired session via reconstruction
-		session := model.ReconstructSession(
-			types.NewID(),
-			userID,
-			userDID,
-			types.None[types.ID](),
-			"hash",
-			types.FromTime(time.Now().Add(-time.Hour)), // expired
-			types.Now(),
-			types.None[types.Timestamp](),
-		)
-
-		err := session.Refresh("newhash", 24*time.Hour)
-
-		if err == nil {
-			t.Fatal("Refresh() on expired session should return error")
-		}
-		if err != domainerror.ErrSessionExpired {
-			t.Errorf("error = %v, want %v", err, domainerror.ErrSessionExpired)
-		}
-	})
+			if tt.checkResult != nil && err == nil {
+				tt.checkResult(t, session, originalExpiry)
+			}
+		})
+	}
 }
 
 func TestSession_IsExpired(t *testing.T) {

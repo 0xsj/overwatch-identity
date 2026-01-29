@@ -532,28 +532,59 @@ func TestAPIKeyRepository_Delete(t *testing.T) {
 func TestAPIKeyRepository_DeleteExpired(t *testing.T) {
 	truncateTables(t)
 	ctx := getContext()
+
 	userRepo := postgres.NewUserRepository(getPool())
 	apiKeyRepo := postgres.NewAPIKeyRepository(getPool())
 
+	// Create user
 	user := createTestUser(t)
 	userRepo.Create(ctx, user)
 
-	// Create active key (no expiry)
-	activeKeyWithSecret := createTestAPIKey(t, user)
-	apiKeyRepo.Create(ctx, activeKeyWithSecret.APIKey)
+	// Create API key that expired MORE than 30 days ago
+	oldExpiredKey := model.ReconstructAPIKey(
+		types.NewID(),
+		user.ID(),
+		"Old Expired Key",
+		"ow_old",
+		"oldhash123",
+		[]string{"read:users"},
+		model.APIKeyStatusActive,
+		types.None[types.ID](),
+		types.Some(types.FromTime(time.Now().Add(-31*24*time.Hour))), // Expired 31 days ago
+		types.None[types.Timestamp](),
+		types.FromTime(time.Now().Add(-60*24*time.Hour)), // Created 60 days ago
+		types.None[types.Timestamp](),
+	)
+	apiKeyRepo.Create(ctx, oldExpiredKey)
 
-	// Create expired key via direct SQL
-	pool := getPool()
-	expiredID := types.NewID()
-	_, err := pool.Exec(ctx, `
-		INSERT INTO api_keys (id, user_id, name, key_prefix, key_hash, scopes, status, tenant_id, expires_at, last_used_at, created_at, revoked_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-	`, expiredID.String(), user.ID().String(), "Expired Key", "ow_expir", "expiredhash",
-		[]string{"read"}, "active", nil, time.Now().Add(-time.Hour), nil, time.Now().Add(-2*time.Hour), nil)
-	if err != nil {
-		t.Fatalf("failed to insert expired API key: %v", err)
-	}
+	// Create API key that expired recently (should NOT be deleted)
+	recentlyExpiredKey := model.ReconstructAPIKey(
+		types.NewID(),
+		user.ID(),
+		"Recently Expired Key",
+		"ow_rec",
+		"recenthash123",
+		[]string{"read:users"},
+		model.APIKeyStatusActive,
+		types.None[types.ID](),
+		types.Some(types.FromTime(time.Now().Add(-1*time.Hour))), // Expired 1 hour ago
+		types.None[types.Timestamp](),
+		types.FromTime(time.Now().Add(-24*time.Hour)),
+		types.None[types.Timestamp](),
+	)
+	apiKeyRepo.Create(ctx, recentlyExpiredKey)
 
+	// Create active API key without expiry (should NOT be deleted)
+	activeKey, _ := model.NewAPIKey(
+		user.ID(),
+		"Active Key",
+		[]string{"read:users"},
+		types.None[types.ID](),
+		types.None[types.Timestamp](),
+	)
+	apiKeyRepo.Create(ctx, activeKey.APIKey)
+
+	// Delete expired API keys
 	count, err := apiKeyRepo.DeleteExpired(ctx)
 
 	if err != nil {
@@ -563,10 +594,22 @@ func TestAPIKeyRepository_DeleteExpired(t *testing.T) {
 		t.Errorf("DeleteExpired() = %d, want 1", count)
 	}
 
-	// Active key should still exist
-	_, err = apiKeyRepo.FindByID(ctx, activeKeyWithSecret.APIKey.ID())
+	// Verify only the old expired key was deleted
+	_, err = apiKeyRepo.FindByID(ctx, oldExpiredKey.ID())
+	if err == nil {
+		t.Error("Old expired API key should be deleted")
+	}
+
+	// Recently expired key should still exist
+	_, err = apiKeyRepo.FindByID(ctx, recentlyExpiredKey.ID())
 	if err != nil {
-		t.Errorf("Active key should still exist: %v", err)
+		t.Error("Recently expired API key should still exist")
+	}
+
+	// Active key should still exist
+	_, err = apiKeyRepo.FindByID(ctx, activeKey.APIKey.ID())
+	if err != nil {
+		t.Error("Active API key should still exist")
 	}
 }
 
