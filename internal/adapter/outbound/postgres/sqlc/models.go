@@ -25,6 +25,18 @@ type ApiKey struct {
 	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
 }
 
+type OAuthIdentity struct {
+	ID             string      `json:"id"`
+	UserID         string      `json:"user_id"`
+	Provider       string      `json:"provider"`
+	ProviderUserID string      `json:"provider_user_id"`
+	Email          string      `json:"email"`
+	Name           pgtype.Text `json:"name"`
+	PictureUrl     pgtype.Text `json:"picture_url"`
+	CreatedAt      time.Time   `json:"created_at"`
+	UpdatedAt      time.Time   `json:"updated_at"`
+}
+
 type Challenge struct {
 	ID        string    `json:"id"`
 	Did       string    `json:"did"`

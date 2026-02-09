@@ -233,6 +233,39 @@ func toUpdateAPIKeyParams(apiKey *model.APIKey) sqlc.UpdateAPIKeyParams {
 	}
 }
 
+// OAuthIdentity mappers
+
+func toOAuthIdentityModel(row sqlc.OAuthIdentity) *model.OAuthIdentity {
+	id, _ := types.ParseID(row.ID)
+	userID, _ := types.ParseID(row.UserID)
+
+	return model.ReconstructOAuthIdentity(
+		id,
+		userID,
+		model.OAuthProvider(row.Provider),
+		row.ProviderUserID,
+		row.Email,
+		textToOptionalString(row.Name),
+		textToOptionalString(row.PictureUrl),
+		types.FromTime(row.CreatedAt),
+		types.FromTime(row.UpdatedAt),
+	)
+}
+
+func toCreateOAuthIdentityParams(identity *model.OAuthIdentity) sqlc.CreateOAuthIdentityParams {
+	return sqlc.CreateOAuthIdentityParams{
+		ID:             identity.ID().String(),
+		UserID:         identity.UserID().String(),
+		Provider:       identity.Provider().String(),
+		ProviderUserID: identity.ProviderUserID(),
+		Email:          identity.Email(),
+		Name:           optionalStringToPgText(identity.Name()),
+		PictureUrl:     optionalStringToPgText(identity.PictureURL()),
+		CreatedAt:      identity.CreatedAt().Time(),
+		UpdatedAt:      identity.UpdatedAt().Time(),
+	}
+}
+
 // Challenge mappers
 
 func toChallengeModel(row sqlc.Challenge) (*model.Challenge, error) {

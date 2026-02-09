@@ -14,7 +14,14 @@ type Config struct {
 	Redis           RedisConfig
 	NATS            NATSConfig
 	Token           TokenConfig
+	OAuth           OAuthConfig
 	ServiceIdentity ServiceIdentityConfig
+}
+
+// OAuthConfig holds OAuth provider configuration.
+type OAuthConfig struct {
+	GoogleClientID     string `env:"OAUTH_GOOGLE_CLIENT_ID" default:""`
+	GoogleClientSecret string `env:"OAUTH_GOOGLE_CLIENT_SECRET" default:"" sensitive:"true"`
 }
 
 // ServerConfig holds gRPC server configuration.

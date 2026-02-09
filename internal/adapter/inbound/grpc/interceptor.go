@@ -18,17 +18,19 @@ var ErrSessionRevoked = errors.New("session revoked")
 
 // PublicMethods defines methods that don't require authentication.
 var PublicMethods = map[string]bool{
-	"/identity.v1.IdentityService/Ping":                 true,
-	"/identity.v1.IdentityService/Register":             true,
-	"/identity.v1.IdentityService/VerifyRegistration":   true,
-	"/identity.v1.IdentityService/Authenticate":         true,
-	"/identity.v1.IdentityService/VerifyAuthentication": true,
-	"/identity.v1.IdentityService/RefreshToken":         true,
-	"/identity.v1.IdentityService/VerifyAPIKey":         true,
-	"/identity.v1.IdentityService/GetUser":              true,
-	"/identity.v1.IdentityService/GetUserByDID":         true,
-	"/grpc.health.v1.Health/Check":                      true,
-	"/grpc.health.v1.Health/Watch":                      true,
+	"/identity.v1.IdentityService/Ping":                     true,
+	"/identity.v1.IdentityService/Register":                 true,
+	"/identity.v1.IdentityService/VerifyRegistration":       true,
+	"/identity.v1.IdentityService/Authenticate":             true,
+	"/identity.v1.IdentityService/VerifyAuthentication":     true,
+	"/identity.v1.IdentityService/RefreshToken":             true,
+	"/identity.v1.IdentityService/VerifyAPIKey":             true,
+	"/identity.v1.IdentityService/GetUser":                  true,
+	"/identity.v1.IdentityService/GetUserByDID":             true,
+	"/identity.v1.IdentityService/GetOAuthAuthorizationURL": true,
+	"/identity.v1.IdentityService/AuthenticateWithOAuth":    true,
+	"/grpc.health.v1.Health/Check":                          true,
+	"/grpc.health.v1.Health/Watch":                          true,
 }
 
 // Claim keys for auth context.

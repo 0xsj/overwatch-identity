@@ -44,6 +44,16 @@ const (
 	CodeAPIKeyExpired      errors.Code = "API_KEY_EXPIRED"
 	CodeAPIKeyRevoked      errors.Code = "API_KEY_REVOKED"
 	CodeAPIKeyNameRequired errors.Code = "API_KEY_NAME_REQUIRED"
+
+	// OAuth errors
+	CodeOAuthProviderInvalid        errors.Code = "OAUTH_PROVIDER_INVALID"
+	CodeOAuthProviderUserIDRequired errors.Code = "OAUTH_PROVIDER_USER_ID_REQUIRED"
+	CodeOAuthEmailRequired          errors.Code = "OAUTH_EMAIL_REQUIRED"
+	CodeOAuthCodeExchangeFailed     errors.Code = "OAUTH_CODE_EXCHANGE_FAILED"
+	CodeOAuthAlreadyLinked          errors.Code = "OAUTH_ALREADY_LINKED"
+	CodeOAuthNotLinked              errors.Code = "OAUTH_NOT_LINKED"
+	CodeOAuthEmailCollision         errors.Code = "OAUTH_EMAIL_COLLISION"
+	CodeOAuthLastProvider           errors.Code = "OAUTH_LAST_PROVIDER"
 )
 
 // User errors
@@ -116,6 +126,25 @@ var (
 	ErrAPIKeyRevoked = errors.New(errors.KindUnauthorized, CodeAPIKeyRevoked, "API key has been revoked")
 
 	ErrAPIKeyNameRequired = errors.New(errors.KindValidation, CodeAPIKeyNameRequired, "API key name is required")
+)
+
+// OAuth errors
+var (
+	ErrOAuthProviderInvalid = errors.New(errors.KindValidation, CodeOAuthProviderInvalid, "unsupported OAuth provider")
+
+	ErrOAuthProviderUserIDRequired = errors.New(errors.KindValidation, CodeOAuthProviderUserIDRequired, "OAuth provider user ID is required")
+
+	ErrOAuthEmailRequired = errors.New(errors.KindValidation, CodeOAuthEmailRequired, "OAuth email is required")
+
+	ErrOAuthCodeExchangeFailed = errors.New(errors.KindUnauthorized, CodeOAuthCodeExchangeFailed, "failed to exchange OAuth authorization code")
+
+	ErrOAuthAlreadyLinked = errors.New(errors.KindConflict, CodeOAuthAlreadyLinked, "OAuth provider already linked to this account")
+
+	ErrOAuthNotLinked = errors.New(errors.KindNotFound, CodeOAuthNotLinked, "OAuth provider not linked to this account")
+
+	ErrOAuthEmailCollision = errors.New(errors.KindConflict, CodeOAuthEmailCollision, "a user with this email already exists with a different auth method")
+
+	ErrOAuthLastProvider = errors.New(errors.KindDomain, CodeOAuthLastProvider, "cannot unlink last authentication provider")
 )
 
 // Helper functions

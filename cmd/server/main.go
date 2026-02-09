@@ -88,6 +88,7 @@ func run() error {
 	sessionRepo := postgres.NewSessionRepository(pool)
 	apiKeyRepo := postgres.NewAPIKeyRepository(pool)
 	challengeRepo := postgres.NewChallengeRepository(pool)
+	oauthIdentityRepo := postgres.NewOAuthIdentityRepository(pool)
 
 	// Initialize caches
 	userCache := rediscache.NewUserCache(redisClient, time.Hour)
@@ -115,6 +116,12 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("failed to create token service: %w", err)
 	}
+
+	// Initialize OAuth service
+	oauthService := service.NewOAuthService(service.OAuthConfig{
+		GoogleClientID:     cfg.OAuth.GoogleClientID,
+		GoogleClientSecret: cfg.OAuth.GoogleClientSecret,
+	})
 
 	// Configuration for domain models
 	challengeConfig := model.DefaultChallengeConfig()
@@ -187,6 +194,24 @@ func run() error {
 		userCache,
 		eventPublisher,
 	)
+	authenticateWithOAuthHandler := command.NewAuthenticateWithOAuthHandler(
+		userRepo,
+		sessionRepo,
+		oauthIdentityRepo,
+		tokenService,
+		oauthService,
+		eventPublisher,
+		sessionConfig,
+	)
+	linkOAuthProviderHandler := command.NewLinkOAuthProviderHandler(
+		oauthIdentityRepo,
+		oauthService,
+		eventPublisher,
+	)
+	unlinkOAuthProviderHandler := command.NewUnlinkOAuthProviderHandler(
+		oauthIdentityRepo,
+		eventPublisher,
+	)
 
 	// Initialize query handlers
 	getUserHandler := query.NewGetUserHandler(userRepo, userCache)
@@ -196,30 +221,37 @@ func run() error {
 	getAPIKeyHandler := query.NewGetAPIKeyHandler(apiKeyRepo)
 	listAPIKeysHandler := query.NewListAPIKeysHandler(apiKeyRepo)
 	verifyAPIKeyHandler := query.NewVerifyAPIKeyHandler(apiKeyRepo, userRepo, eventPublisher)
+	getOAuthAuthorizationURLHandler := query.NewGetOAuthAuthorizationURLHandler(oauthService)
+	listLinkedProvidersHandler := query.NewListLinkedProvidersHandler(oauthIdentityRepo)
 
 	// tokenBlacklist can be used for token revocation checks if needed
 	_ = tokenBlacklist
 
 	// Initialize gRPC handler
 	handler := identitygrpc.NewHandler(identitygrpc.HandlerConfig{
-		RegisterUserHandler:         registerUserHandler,
-		VerifyRegistrationHandler:   verifyRegistrationHandler,
-		AuthenticateHandler:         authenticateHandler,
-		VerifyAuthenticationHandler: verifyAuthenticationHandler,
-		RefreshTokenHandler:         refreshTokenHandler,
-		RevokeTokenHandler:          revokeTokenHandler,
-		RevokeSessionHandler:        revokeSessionHandler,
-		RevokeAllSessionsHandler:    revokeAllSessionsHandler,
-		CreateAPIKeyHandler:         createAPIKeyHandler,
-		RevokeAPIKeyHandler:         revokeAPIKeyHandler,
-		UpdateUserHandler:           updateUserHandler,
-		GetUserHandler:              getUserHandler,
-		GetUserByDIDHandler:         getUserByDIDHandler,
-		GetSessionHandler:           getSessionHandler,
-		ListSessionsHandler:         listSessionsHandler,
-		GetAPIKeyHandler:            getAPIKeyHandler,
-		ListAPIKeysHandler:          listAPIKeysHandler,
-		VerifyAPIKeyHandler:         verifyAPIKeyHandler,
+		RegisterUserHandler:             registerUserHandler,
+		VerifyRegistrationHandler:       verifyRegistrationHandler,
+		AuthenticateHandler:             authenticateHandler,
+		VerifyAuthenticationHandler:     verifyAuthenticationHandler,
+		RefreshTokenHandler:             refreshTokenHandler,
+		RevokeTokenHandler:              revokeTokenHandler,
+		RevokeSessionHandler:            revokeSessionHandler,
+		RevokeAllSessionsHandler:        revokeAllSessionsHandler,
+		CreateAPIKeyHandler:             createAPIKeyHandler,
+		RevokeAPIKeyHandler:             revokeAPIKeyHandler,
+		UpdateUserHandler:               updateUserHandler,
+		AuthenticateWithOAuthHandler:    authenticateWithOAuthHandler,
+		LinkOAuthProviderHandler:        linkOAuthProviderHandler,
+		UnlinkOAuthProviderHandler:      unlinkOAuthProviderHandler,
+		GetUserHandler:                  getUserHandler,
+		GetUserByDIDHandler:             getUserByDIDHandler,
+		GetSessionHandler:               getSessionHandler,
+		ListSessionsHandler:             listSessionsHandler,
+		GetAPIKeyHandler:                getAPIKeyHandler,
+		ListAPIKeysHandler:              listAPIKeysHandler,
+		VerifyAPIKeyHandler:             verifyAPIKeyHandler,
+		GetOAuthAuthorizationURLHandler: getOAuthAuthorizationURLHandler,
+		ListLinkedProvidersHandler:      listLinkedProvidersHandler,
 	})
 
 	// Initialize gRPC server

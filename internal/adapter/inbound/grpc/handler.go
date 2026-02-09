@@ -19,71 +19,86 @@ type Handler struct {
 	identityv1.UnimplementedIdentityServiceServer
 
 	// Command handlers
-	registerUserHandler         command.RegisterUserHandler
-	verifyRegistrationHandler   command.VerifyRegistrationHandler
-	authenticateHandler         command.AuthenticateHandler
-	verifyAuthenticationHandler command.VerifyAuthenticationHandler
-	refreshTokenHandler         command.RefreshTokenHandler
-	revokeTokenHandler          command.RevokeTokenHandler
-	revokeSessionHandler        command.RevokeSessionHandler
-	revokeAllSessionsHandler    command.RevokeAllSessionsHandler
-	createAPIKeyHandler         command.CreateAPIKeyHandler
-	revokeAPIKeyHandler         command.RevokeAPIKeyHandler
-	updateUserHandler           command.UpdateUserHandler
+	registerUserHandler          command.RegisterUserHandler
+	verifyRegistrationHandler    command.VerifyRegistrationHandler
+	authenticateHandler          command.AuthenticateHandler
+	verifyAuthenticationHandler  command.VerifyAuthenticationHandler
+	refreshTokenHandler          command.RefreshTokenHandler
+	revokeTokenHandler           command.RevokeTokenHandler
+	revokeSessionHandler         command.RevokeSessionHandler
+	revokeAllSessionsHandler     command.RevokeAllSessionsHandler
+	createAPIKeyHandler          command.CreateAPIKeyHandler
+	revokeAPIKeyHandler          command.RevokeAPIKeyHandler
+	updateUserHandler            command.UpdateUserHandler
+	authenticateWithOAuthHandler command.AuthenticateWithOAuthHandler
+	linkOAuthProviderHandler     command.LinkOAuthProviderHandler
+	unlinkOAuthProviderHandler   command.UnlinkOAuthProviderHandler
 
 	// Query handlers
-	getUserHandler      query.GetUserHandler
-	getUserByDIDHandler query.GetUserByDIDHandler
-	getSessionHandler   query.GetSessionHandler
-	listSessionsHandler query.ListSessionsHandler
-	getAPIKeyHandler    query.GetAPIKeyHandler
-	listAPIKeysHandler  query.ListAPIKeysHandler
-	verifyAPIKeyHandler query.VerifyAPIKeyHandler
+	getUserHandler                  query.GetUserHandler
+	getUserByDIDHandler             query.GetUserByDIDHandler
+	getSessionHandler               query.GetSessionHandler
+	listSessionsHandler             query.ListSessionsHandler
+	getAPIKeyHandler                query.GetAPIKeyHandler
+	listAPIKeysHandler              query.ListAPIKeysHandler
+	verifyAPIKeyHandler             query.VerifyAPIKeyHandler
+	getOAuthAuthorizationURLHandler query.GetOAuthAuthorizationURLHandler
+	listLinkedProvidersHandler      query.ListLinkedProvidersHandler
 }
 
 // HandlerConfig holds all the handlers needed by the gRPC handler.
 type HandlerConfig struct {
-	RegisterUserHandler         command.RegisterUserHandler
-	VerifyRegistrationHandler   command.VerifyRegistrationHandler
-	AuthenticateHandler         command.AuthenticateHandler
-	VerifyAuthenticationHandler command.VerifyAuthenticationHandler
-	RefreshTokenHandler         command.RefreshTokenHandler
-	RevokeTokenHandler          command.RevokeTokenHandler
-	RevokeSessionHandler        command.RevokeSessionHandler
-	RevokeAllSessionsHandler    command.RevokeAllSessionsHandler
-	CreateAPIKeyHandler         command.CreateAPIKeyHandler
-	RevokeAPIKeyHandler         command.RevokeAPIKeyHandler
-	UpdateUserHandler           command.UpdateUserHandler
-	GetUserHandler              query.GetUserHandler
-	GetUserByDIDHandler         query.GetUserByDIDHandler
-	GetSessionHandler           query.GetSessionHandler
-	ListSessionsHandler         query.ListSessionsHandler
-	GetAPIKeyHandler            query.GetAPIKeyHandler
-	ListAPIKeysHandler          query.ListAPIKeysHandler
-	VerifyAPIKeyHandler         query.VerifyAPIKeyHandler
+	RegisterUserHandler             command.RegisterUserHandler
+	VerifyRegistrationHandler       command.VerifyRegistrationHandler
+	AuthenticateHandler             command.AuthenticateHandler
+	VerifyAuthenticationHandler     command.VerifyAuthenticationHandler
+	RefreshTokenHandler             command.RefreshTokenHandler
+	RevokeTokenHandler              command.RevokeTokenHandler
+	RevokeSessionHandler            command.RevokeSessionHandler
+	RevokeAllSessionsHandler        command.RevokeAllSessionsHandler
+	CreateAPIKeyHandler             command.CreateAPIKeyHandler
+	RevokeAPIKeyHandler             command.RevokeAPIKeyHandler
+	UpdateUserHandler               command.UpdateUserHandler
+	AuthenticateWithOAuthHandler    command.AuthenticateWithOAuthHandler
+	LinkOAuthProviderHandler        command.LinkOAuthProviderHandler
+	UnlinkOAuthProviderHandler      command.UnlinkOAuthProviderHandler
+	GetUserHandler                  query.GetUserHandler
+	GetUserByDIDHandler             query.GetUserByDIDHandler
+	GetSessionHandler               query.GetSessionHandler
+	ListSessionsHandler             query.ListSessionsHandler
+	GetAPIKeyHandler                query.GetAPIKeyHandler
+	ListAPIKeysHandler              query.ListAPIKeysHandler
+	VerifyAPIKeyHandler             query.VerifyAPIKeyHandler
+	GetOAuthAuthorizationURLHandler query.GetOAuthAuthorizationURLHandler
+	ListLinkedProvidersHandler      query.ListLinkedProvidersHandler
 }
 
 // NewHandler creates a new gRPC handler.
 func NewHandler(cfg HandlerConfig) *Handler {
 	return &Handler{
-		registerUserHandler:         cfg.RegisterUserHandler,
-		verifyRegistrationHandler:   cfg.VerifyRegistrationHandler,
-		authenticateHandler:         cfg.AuthenticateHandler,
-		verifyAuthenticationHandler: cfg.VerifyAuthenticationHandler,
-		refreshTokenHandler:         cfg.RefreshTokenHandler,
-		revokeTokenHandler:          cfg.RevokeTokenHandler,
-		revokeSessionHandler:        cfg.RevokeSessionHandler,
-		revokeAllSessionsHandler:    cfg.RevokeAllSessionsHandler,
-		createAPIKeyHandler:         cfg.CreateAPIKeyHandler,
-		revokeAPIKeyHandler:         cfg.RevokeAPIKeyHandler,
-		updateUserHandler:           cfg.UpdateUserHandler,
-		getUserHandler:              cfg.GetUserHandler,
-		getUserByDIDHandler:         cfg.GetUserByDIDHandler,
-		getSessionHandler:           cfg.GetSessionHandler,
-		listSessionsHandler:         cfg.ListSessionsHandler,
-		getAPIKeyHandler:            cfg.GetAPIKeyHandler,
-		listAPIKeysHandler:          cfg.ListAPIKeysHandler,
-		verifyAPIKeyHandler:         cfg.VerifyAPIKeyHandler,
+		registerUserHandler:             cfg.RegisterUserHandler,
+		verifyRegistrationHandler:       cfg.VerifyRegistrationHandler,
+		authenticateHandler:             cfg.AuthenticateHandler,
+		verifyAuthenticationHandler:     cfg.VerifyAuthenticationHandler,
+		refreshTokenHandler:             cfg.RefreshTokenHandler,
+		revokeTokenHandler:              cfg.RevokeTokenHandler,
+		revokeSessionHandler:            cfg.RevokeSessionHandler,
+		revokeAllSessionsHandler:        cfg.RevokeAllSessionsHandler,
+		createAPIKeyHandler:             cfg.CreateAPIKeyHandler,
+		revokeAPIKeyHandler:             cfg.RevokeAPIKeyHandler,
+		updateUserHandler:               cfg.UpdateUserHandler,
+		authenticateWithOAuthHandler:    cfg.AuthenticateWithOAuthHandler,
+		linkOAuthProviderHandler:        cfg.LinkOAuthProviderHandler,
+		unlinkOAuthProviderHandler:      cfg.UnlinkOAuthProviderHandler,
+		getUserHandler:                  cfg.GetUserHandler,
+		getUserByDIDHandler:             cfg.GetUserByDIDHandler,
+		getSessionHandler:               cfg.GetSessionHandler,
+		listSessionsHandler:             cfg.ListSessionsHandler,
+		getAPIKeyHandler:                cfg.GetAPIKeyHandler,
+		listAPIKeysHandler:              cfg.ListAPIKeysHandler,
+		verifyAPIKeyHandler:             cfg.VerifyAPIKeyHandler,
+		getOAuthAuthorizationURLHandler: cfg.GetOAuthAuthorizationURLHandler,
+		listLinkedProvidersHandler:      cfg.ListLinkedProvidersHandler,
 	}
 }
 
@@ -508,5 +523,139 @@ func (h *Handler) UpdateUser(ctx context.Context, req *identityv1.UpdateUserRequ
 
 	return &identityv1.UpdateUserResponse{
 		User: toProtoUser(result.User),
+	}, nil
+}
+
+// OAuth
+
+func (h *Handler) GetOAuthAuthorizationURL(ctx context.Context, req *identityv1.GetOAuthAuthorizationURLRequest) (*identityv1.GetOAuthAuthorizationURLResponse, error) {
+	provider, err := fromProtoOAuthProvider(req.Provider)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	var state string
+	if req.State != nil {
+		state = *req.State
+	}
+
+	qry := query.GetOAuthAuthorizationURL{
+		Provider:    provider,
+		RedirectURI: req.RedirectUri,
+		State:       state,
+	}
+
+	result, err := h.getOAuthAuthorizationURLHandler.Handle(ctx, qry)
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &identityv1.GetOAuthAuthorizationURLResponse{
+		AuthorizationUrl: result.AuthorizationURL,
+		State:            result.State,
+	}, nil
+}
+
+func (h *Handler) AuthenticateWithOAuth(ctx context.Context, req *identityv1.AuthenticateWithOAuthRequest) (*identityv1.AuthenticateWithOAuthResponse, error) {
+	provider, err := fromProtoOAuthProvider(req.Provider)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	cmd := command.AuthenticateWithOAuth{
+		Provider:    provider,
+		Code:        req.Code,
+		RedirectURI: req.RedirectUri,
+		TenantID:    toOptionalTenantID(req.TenantId),
+	}
+
+	result, err := h.authenticateWithOAuthHandler.Handle(ctx, cmd)
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &identityv1.AuthenticateWithOAuthResponse{
+		User:                 toProtoUser(result.User),
+		AccessToken:          result.AccessToken,
+		RefreshToken:         result.RefreshToken,
+		AccessTokenExpiresAt: timestamppb.New(result.AccessTokenExpiresAt.Time()),
+		IsNewUser:            result.IsNewUser,
+	}, nil
+}
+
+func (h *Handler) LinkOAuthProvider(ctx context.Context, req *identityv1.LinkOAuthProviderRequest) (*identityv1.LinkOAuthProviderResponse, error) {
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	}
+
+	provider, err := fromProtoOAuthProvider(req.Provider)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	cmd := command.LinkOAuthProvider{
+		UserID:      userID,
+		Provider:    provider,
+		Code:        req.Code,
+		RedirectURI: req.RedirectUri,
+	}
+
+	result, err := h.linkOAuthProviderHandler.Handle(ctx, cmd)
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &identityv1.LinkOAuthProviderResponse{
+		OauthIdentity: toProtoOAuthIdentity(result.OAuthIdentity),
+	}, nil
+}
+
+func (h *Handler) UnlinkOAuthProvider(ctx context.Context, req *identityv1.UnlinkOAuthProviderRequest) (*identityv1.UnlinkOAuthProviderResponse, error) {
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	}
+
+	provider, err := fromProtoOAuthProvider(req.Provider)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	cmd := command.UnlinkOAuthProvider{
+		UserID:   userID,
+		Provider: provider,
+	}
+
+	_, err = h.unlinkOAuthProviderHandler.Handle(ctx, cmd)
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	return &identityv1.UnlinkOAuthProviderResponse{}, nil
+}
+
+func (h *Handler) ListLinkedProviders(ctx context.Context, req *identityv1.ListLinkedProvidersRequest) (*identityv1.ListLinkedProvidersResponse, error) {
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	}
+
+	qry := query.ListLinkedProviders{
+		UserID: userID,
+	}
+
+	result, err := h.listLinkedProvidersHandler.Handle(ctx, qry)
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	providers := make([]*identityv1.OAuthIdentity, len(result.Providers))
+	for i, p := range result.Providers {
+		providers[i] = toProtoOAuthIdentity(p)
+	}
+
+	return &identityv1.ListLinkedProvidersResponse{
+		Providers: providers,
 	}, nil
 }

@@ -1,6 +1,8 @@
 package grpc
 
 import (
+	"fmt"
+
 	"github.com/0xsj/overwatch-pkg/types"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -136,6 +138,54 @@ func toProtoAPIKeyStatus(status model.APIKeyStatus) identityv1.APIKeyStatus {
 		return identityv1.APIKeyStatus_API_KEY_STATUS_REVOKED
 	default:
 		return identityv1.APIKeyStatus_API_KEY_STATUS_UNSPECIFIED
+	}
+}
+
+// OAuthIdentity mappers
+
+func toProtoOAuthIdentity(identity *model.OAuthIdentity) *identityv1.OAuthIdentity {
+	if identity == nil {
+		return nil
+	}
+
+	proto := &identityv1.OAuthIdentity{
+		Id:             identity.ID().String(),
+		UserId:         identity.UserID().String(),
+		Provider:       toProtoOAuthProvider(identity.Provider()),
+		ProviderUserId: identity.ProviderUserID(),
+		Email:          identity.Email(),
+		CreatedAt:      timestamppb.New(identity.CreatedAt().Time()),
+		UpdatedAt:      timestamppb.New(identity.UpdatedAt().Time()),
+	}
+
+	if identity.Name().IsPresent() {
+		name := identity.Name().MustGet()
+		proto.Name = &name
+	}
+
+	if identity.PictureURL().IsPresent() {
+		pic := identity.PictureURL().MustGet()
+		proto.PictureUrl = &pic
+	}
+
+	return proto
+}
+
+func toProtoOAuthProvider(provider model.OAuthProvider) identityv1.OAuthProvider {
+	switch provider {
+	case model.OAuthProviderGoogle:
+		return identityv1.OAuthProvider_OAUTH_PROVIDER_GOOGLE
+	default:
+		return identityv1.OAuthProvider_OAUTH_PROVIDER_UNSPECIFIED
+	}
+}
+
+func fromProtoOAuthProvider(provider identityv1.OAuthProvider) (model.OAuthProvider, error) {
+	switch provider {
+	case identityv1.OAuthProvider_OAUTH_PROVIDER_GOOGLE:
+		return model.OAuthProviderGoogle, nil
+	default:
+		return "", fmt.Errorf("unsupported OAuth provider: %v", provider)
 	}
 }
 
