@@ -21,7 +21,7 @@ CREATE INDEX IF NOT EXISTS idx_oauth_identities_email ON oauth_identities (email
 CREATE OR REPLACE TRIGGER set_oauth_identities_updated_at
     BEFORE UPDATE ON oauth_identities
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at();
+    EXECUTE FUNCTION update_updated_at_column();
 
 -- Add auth_method to sessions table to track how the session was created
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS auth_method TEXT NOT NULL DEFAULT 'did_challenge';
