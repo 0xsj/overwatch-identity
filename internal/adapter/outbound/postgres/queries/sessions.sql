@@ -1,6 +1,6 @@
 -- name: CreateSession :exec
-INSERT INTO sessions (id, user_id, user_did, tenant_id, refresh_token_hash, expires_at, created_at, revoked_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+INSERT INTO sessions (id, user_id, user_did, tenant_id, refresh_token_hash, auth_method, expires_at, created_at, revoked_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: UpdateSession :exec
 UPDATE sessions
@@ -8,17 +8,17 @@ SET refresh_token_hash = $2, expires_at = $3, revoked_at = $4
 WHERE id = $1;
 
 -- name: FindSessionByID :one
-SELECT id, user_id, user_did, tenant_id, refresh_token_hash, expires_at, created_at, revoked_at
+SELECT id, user_id, user_did, tenant_id, refresh_token_hash, auth_method, expires_at, created_at, revoked_at
 FROM sessions
 WHERE id = $1;
 
 -- name: FindSessionByRefreshTokenHash :one
-SELECT id, user_id, user_did, tenant_id, refresh_token_hash, expires_at, created_at, revoked_at
+SELECT id, user_id, user_did, tenant_id, refresh_token_hash, auth_method, expires_at, created_at, revoked_at
 FROM sessions
 WHERE refresh_token_hash = $1;
 
 -- name: FindActiveSessionsByUserID :many
-SELECT id, user_id, user_did, tenant_id, refresh_token_hash, expires_at, created_at, revoked_at
+SELECT id, user_id, user_did, tenant_id, refresh_token_hash, auth_method, expires_at, created_at, revoked_at
 FROM sessions
 WHERE user_id = $1
   AND revoked_at IS NULL
@@ -26,7 +26,7 @@ WHERE user_id = $1
 ORDER BY created_at DESC;
 
 -- name: ListSessions :many
-SELECT id, user_id, user_did, tenant_id, refresh_token_hash, expires_at, created_at, revoked_at
+SELECT id, user_id, user_did, tenant_id, refresh_token_hash, auth_method, expires_at, created_at, revoked_at
 FROM sessions
 WHERE (sqlc.narg('user_id')::text IS NULL OR user_id = sqlc.narg('user_id'))
   AND (sqlc.narg('tenant_id')::text IS NULL OR tenant_id = sqlc.narg('tenant_id'))

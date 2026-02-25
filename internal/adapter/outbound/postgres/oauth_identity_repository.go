@@ -43,7 +43,10 @@ func (r *oauthIdentityRepository) FindByID(ctx context.Context, id types.ID) (*m
 }
 
 func (r *oauthIdentityRepository) FindByProviderAndProviderUserID(ctx context.Context, provider model.OAuthProvider, providerUserID string) (*model.OAuthIdentity, error) {
-	row, err := r.queries.FindOAuthIdentityByProviderAndProviderUserID(ctx, string(provider), providerUserID)
+	row, err := r.queries.FindOAuthIdentityByProviderAndProviderUserID(ctx, sqlc.FindOAuthIdentityByProviderAndProviderUserIDParams{
+		Provider:       string(provider),
+		ProviderUserID: providerUserID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, repository.ErrNotFound
@@ -67,7 +70,10 @@ func (r *oauthIdentityRepository) FindByUserID(ctx context.Context, userID types
 }
 
 func (r *oauthIdentityRepository) FindByUserIDAndProvider(ctx context.Context, userID types.ID, provider model.OAuthProvider) (*model.OAuthIdentity, error) {
-	row, err := r.queries.FindOAuthIdentityByUserIDAndProvider(ctx, userID.String(), string(provider))
+	row, err := r.queries.FindOAuthIdentityByUserIDAndProvider(ctx, sqlc.FindOAuthIdentityByUserIDAndProviderParams{
+		UserID:   userID.String(),
+		Provider: string(provider),
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, repository.ErrNotFound
@@ -82,7 +88,10 @@ func (r *oauthIdentityRepository) Delete(ctx context.Context, id types.ID) error
 }
 
 func (r *oauthIdentityRepository) DeleteByUserIDAndProvider(ctx context.Context, userID types.ID, provider model.OAuthProvider) error {
-	return r.queries.DeleteOAuthIdentityByUserIDAndProvider(ctx, userID.String(), string(provider))
+	return r.queries.DeleteOAuthIdentityByUserIDAndProvider(ctx, sqlc.DeleteOAuthIdentityByUserIDAndProviderParams{
+		UserID:   userID.String(),
+		Provider: string(provider),
+	})
 }
 
 func (r *oauthIdentityRepository) CountByUserID(ctx context.Context, userID types.ID) (int64, error) {

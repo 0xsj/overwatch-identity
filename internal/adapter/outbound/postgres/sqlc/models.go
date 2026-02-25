@@ -25,7 +25,16 @@ type ApiKey struct {
 	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
 }
 
-type OAuthIdentity struct {
+type Challenge struct {
+	ID        string    `json:"id"`
+	Did       string    `json:"did"`
+	Nonce     string    `json:"nonce"`
+	Purpose   string    `json:"purpose"`
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type OauthIdentity struct {
 	ID             string      `json:"id"`
 	UserID         string      `json:"user_id"`
 	Provider       string      `json:"provider"`
@@ -37,15 +46,6 @@ type OAuthIdentity struct {
 	UpdatedAt      time.Time   `json:"updated_at"`
 }
 
-type Challenge struct {
-	ID        string    `json:"id"`
-	Did       string    `json:"did"`
-	Nonce     string    `json:"nonce"`
-	Purpose   string    `json:"purpose"`
-	ExpiresAt time.Time `json:"expires_at"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
 type Session struct {
 	ID               string             `json:"id"`
 	UserID           string             `json:"user_id"`
@@ -55,6 +55,7 @@ type Session struct {
 	ExpiresAt        time.Time          `json:"expires_at"`
 	CreatedAt        time.Time          `json:"created_at"`
 	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
+	AuthMethod       string             `json:"auth_method"`
 }
 
 type User struct {

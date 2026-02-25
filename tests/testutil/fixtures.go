@@ -261,6 +261,7 @@ func (b *SessionBuilder) Build() *model.Session {
 			b.userDID,
 			b.tenantID,
 			b.refreshTokenHash,
+			model.AuthMethodDIDChallenge,
 			expiresAt,
 			createdAt,
 			b.revokedAt,

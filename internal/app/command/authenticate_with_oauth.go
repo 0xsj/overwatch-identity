@@ -151,12 +151,13 @@ func (h *authenticateWithOAuthHandler) Handle(ctx context.Context, cmd command.A
 		return command.AuthenticateWithOAuthResult{}, err
 	}
 
-	// 5. Create session
-	session, err := model.NewSession(
+	// 5. Create session (OAuth method)
+	session, err := model.NewSessionWithMethod(
 		user.ID(),
 		user.DID(),
 		cmd.TenantID,
 		refreshTokenHash,
+		model.AuthMethodOAuth,
 		h.sessionConfig,
 	)
 	if err != nil {

@@ -72,8 +72,13 @@ DELETE FROM oauth_identities
 WHERE user_id = $1 AND provider = $2
 `
 
-func (q *Queries) DeleteOAuthIdentityByUserIDAndProvider(ctx context.Context, userID string, provider string) error {
-	_, err := q.db.Exec(ctx, deleteOAuthIdentityByUserIDAndProvider, userID, provider)
+type DeleteOAuthIdentityByUserIDAndProviderParams struct {
+	UserID   string `json:"user_id"`
+	Provider string `json:"provider"`
+}
+
+func (q *Queries) DeleteOAuthIdentityByUserIDAndProvider(ctx context.Context, arg DeleteOAuthIdentityByUserIDAndProviderParams) error {
+	_, err := q.db.Exec(ctx, deleteOAuthIdentityByUserIDAndProvider, arg.UserID, arg.Provider)
 	return err
 }
 
@@ -84,15 +89,15 @@ WHERE user_id = $1
 ORDER BY created_at ASC
 `
 
-func (q *Queries) FindOAuthIdentitiesByUserID(ctx context.Context, userID string) ([]OAuthIdentity, error) {
+func (q *Queries) FindOAuthIdentitiesByUserID(ctx context.Context, userID string) ([]OauthIdentity, error) {
 	rows, err := q.db.Query(ctx, findOAuthIdentitiesByUserID, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []OAuthIdentity{}
+	items := []OauthIdentity{}
 	for rows.Next() {
-		var i OAuthIdentity
+		var i OauthIdentity
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -120,9 +125,9 @@ FROM oauth_identities
 WHERE id = $1
 `
 
-func (q *Queries) FindOAuthIdentityByID(ctx context.Context, id string) (OAuthIdentity, error) {
+func (q *Queries) FindOAuthIdentityByID(ctx context.Context, id string) (OauthIdentity, error) {
 	row := q.db.QueryRow(ctx, findOAuthIdentityByID, id)
-	var i OAuthIdentity
+	var i OauthIdentity
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -143,9 +148,14 @@ FROM oauth_identities
 WHERE provider = $1 AND provider_user_id = $2
 `
 
-func (q *Queries) FindOAuthIdentityByProviderAndProviderUserID(ctx context.Context, provider string, providerUserID string) (OAuthIdentity, error) {
-	row := q.db.QueryRow(ctx, findOAuthIdentityByProviderAndProviderUserID, provider, providerUserID)
-	var i OAuthIdentity
+type FindOAuthIdentityByProviderAndProviderUserIDParams struct {
+	Provider       string `json:"provider"`
+	ProviderUserID string `json:"provider_user_id"`
+}
+
+func (q *Queries) FindOAuthIdentityByProviderAndProviderUserID(ctx context.Context, arg FindOAuthIdentityByProviderAndProviderUserIDParams) (OauthIdentity, error) {
+	row := q.db.QueryRow(ctx, findOAuthIdentityByProviderAndProviderUserID, arg.Provider, arg.ProviderUserID)
+	var i OauthIdentity
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -166,9 +176,14 @@ FROM oauth_identities
 WHERE user_id = $1 AND provider = $2
 `
 
-func (q *Queries) FindOAuthIdentityByUserIDAndProvider(ctx context.Context, userID string, provider string) (OAuthIdentity, error) {
-	row := q.db.QueryRow(ctx, findOAuthIdentityByUserIDAndProvider, userID, provider)
-	var i OAuthIdentity
+type FindOAuthIdentityByUserIDAndProviderParams struct {
+	UserID   string `json:"user_id"`
+	Provider string `json:"provider"`
+}
+
+func (q *Queries) FindOAuthIdentityByUserIDAndProvider(ctx context.Context, arg FindOAuthIdentityByUserIDAndProviderParams) (OauthIdentity, error) {
+	row := q.db.QueryRow(ctx, findOAuthIdentityByUserIDAndProvider, arg.UserID, arg.Provider)
+	var i OauthIdentity
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,

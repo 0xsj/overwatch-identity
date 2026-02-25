@@ -142,6 +142,7 @@ type cachedSession struct {
 	UserDID          string  `json:"user_did"`
 	TenantID         *string `json:"tenant_id,omitempty"`
 	RefreshTokenHash string  `json:"refresh_token_hash"`
+	AuthMethod       string  `json:"auth_method"`
 	ExpiresAt        int64   `json:"expires_at"`
 	CreatedAt        int64   `json:"created_at"`
 	RevokedAt        *int64  `json:"revoked_at,omitempty"`
@@ -153,6 +154,7 @@ func newCachedSession(s *model.Session) cachedSession {
 		UserID:           s.UserID().String(),
 		UserDID:          s.UserDID().String(),
 		RefreshTokenHash: s.RefreshTokenHash(),
+		AuthMethod:       string(s.AuthMethod()),
 		ExpiresAt:        s.ExpiresAt().Time().Unix(),
 		CreatedAt:        s.CreatedAt().Time().Unix(),
 	}
@@ -205,6 +207,7 @@ func (c cachedSession) toModel() (*model.Session, error) {
 		userDID,
 		tenantID,
 		c.RefreshTokenHash,
+		model.AuthMethod(c.AuthMethod),
 		types.FromTime(time.Unix(c.ExpiresAt, 0)),
 		types.FromTime(time.Unix(c.CreatedAt, 0)),
 		revokedAt,

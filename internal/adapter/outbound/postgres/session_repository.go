@@ -47,7 +47,7 @@ func (r *sessionRepository) FindByID(ctx context.Context, id types.ID) (*model.S
 		}
 		return nil, err
 	}
-	return toSessionModel(row)
+	return toSessionModel(sessionRowFromFindByID(row))
 }
 
 func (r *sessionRepository) FindByRefreshTokenHash(ctx context.Context, hash string) (*model.Session, error) {
@@ -58,7 +58,7 @@ func (r *sessionRepository) FindByRefreshTokenHash(ctx context.Context, hash str
 		}
 		return nil, err
 	}
-	return toSessionModel(row)
+	return toSessionModel(sessionRowFromFindByRefreshTokenHash(row))
 }
 
 func (r *sessionRepository) FindActiveByUserID(ctx context.Context, userID types.ID) ([]*model.Session, error) {
@@ -69,7 +69,7 @@ func (r *sessionRepository) FindActiveByUserID(ctx context.Context, userID types
 
 	sessions := make([]*model.Session, 0, len(rows))
 	for _, row := range rows {
-		session, err := toSessionModel(row)
+		session, err := toSessionModel(sessionRowFromFindActive(row))
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +106,7 @@ func (r *sessionRepository) List(ctx context.Context, params repository.ListSess
 
 	sessions := make([]*model.Session, 0, len(rows))
 	for _, row := range rows {
-		session, err := toSessionModel(row)
+		session, err := toSessionModel(sessionRowFromList(row))
 		if err != nil {
 			return nil, err
 		}

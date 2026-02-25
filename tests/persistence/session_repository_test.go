@@ -408,6 +408,7 @@ func TestSessionRepository_DeleteExpired(t *testing.T) {
 		user.DID(),
 		types.None[types.ID](),
 		"expired_hash",
+		model.AuthMethodDIDChallenge,
 		types.FromTime(time.Now().Add(-31*24*time.Hour)), // Expired 31 days ago
 		types.FromTime(time.Now().Add(-60*24*time.Hour)), // Created 60 days ago
 		types.None[types.Timestamp](),
@@ -421,6 +422,7 @@ func TestSessionRepository_DeleteExpired(t *testing.T) {
 		user.DID(),
 		types.None[types.ID](),
 		"recently_expired_hash",
+		model.AuthMethodDIDChallenge,
 		types.FromTime(time.Now().Add(-1*time.Hour)), // Expired 1 hour ago
 		types.FromTime(time.Now().Add(-24*time.Hour)),
 		types.None[types.Timestamp](),

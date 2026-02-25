@@ -34,8 +34,8 @@ func (q *Queries) CountSessions(ctx context.Context, arg CountSessionsParams) (i
 }
 
 const createSession = `-- name: CreateSession :exec
-INSERT INTO sessions (id, user_id, user_did, tenant_id, refresh_token_hash, expires_at, created_at, revoked_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO sessions (id, user_id, user_did, tenant_id, refresh_token_hash, auth_method, expires_at, created_at, revoked_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type CreateSessionParams struct {
@@ -44,6 +44,7 @@ type CreateSessionParams struct {
 	UserDid          string             `json:"user_did"`
 	TenantID         pgtype.Text        `json:"tenant_id"`
 	RefreshTokenHash string             `json:"refresh_token_hash"`
+	AuthMethod       string             `json:"auth_method"`
 	ExpiresAt        time.Time          `json:"expires_at"`
 	CreatedAt        time.Time          `json:"created_at"`
 	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
@@ -56,6 +57,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 		arg.UserDid,
 		arg.TenantID,
 		arg.RefreshTokenHash,
+		arg.AuthMethod,
 		arg.ExpiresAt,
 		arg.CreatedAt,
 		arg.RevokedAt,
@@ -77,7 +79,7 @@ func (q *Queries) DeleteExpiredSessions(ctx context.Context) (int64, error) {
 }
 
 const findActiveSessionsByUserID = `-- name: FindActiveSessionsByUserID :many
-SELECT id, user_id, user_did, tenant_id, refresh_token_hash, expires_at, created_at, revoked_at
+SELECT id, user_id, user_did, tenant_id, refresh_token_hash, auth_method, expires_at, created_at, revoked_at
 FROM sessions
 WHERE user_id = $1
   AND revoked_at IS NULL
@@ -85,21 +87,34 @@ WHERE user_id = $1
 ORDER BY created_at DESC
 `
 
-func (q *Queries) FindActiveSessionsByUserID(ctx context.Context, userID string) ([]Session, error) {
+type FindActiveSessionsByUserIDRow struct {
+	ID               string             `json:"id"`
+	UserID           string             `json:"user_id"`
+	UserDid          string             `json:"user_did"`
+	TenantID         pgtype.Text        `json:"tenant_id"`
+	RefreshTokenHash string             `json:"refresh_token_hash"`
+	AuthMethod       string             `json:"auth_method"`
+	ExpiresAt        time.Time          `json:"expires_at"`
+	CreatedAt        time.Time          `json:"created_at"`
+	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
+}
+
+func (q *Queries) FindActiveSessionsByUserID(ctx context.Context, userID string) ([]FindActiveSessionsByUserIDRow, error) {
 	rows, err := q.db.Query(ctx, findActiveSessionsByUserID, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Session{}
+	items := []FindActiveSessionsByUserIDRow{}
 	for rows.Next() {
-		var i Session
+		var i FindActiveSessionsByUserIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
 			&i.UserDid,
 			&i.TenantID,
 			&i.RefreshTokenHash,
+			&i.AuthMethod,
 			&i.ExpiresAt,
 			&i.CreatedAt,
 			&i.RevokedAt,
@@ -115,20 +130,33 @@ func (q *Queries) FindActiveSessionsByUserID(ctx context.Context, userID string)
 }
 
 const findSessionByID = `-- name: FindSessionByID :one
-SELECT id, user_id, user_did, tenant_id, refresh_token_hash, expires_at, created_at, revoked_at
+SELECT id, user_id, user_did, tenant_id, refresh_token_hash, auth_method, expires_at, created_at, revoked_at
 FROM sessions
 WHERE id = $1
 `
 
-func (q *Queries) FindSessionByID(ctx context.Context, id string) (Session, error) {
+type FindSessionByIDRow struct {
+	ID               string             `json:"id"`
+	UserID           string             `json:"user_id"`
+	UserDid          string             `json:"user_did"`
+	TenantID         pgtype.Text        `json:"tenant_id"`
+	RefreshTokenHash string             `json:"refresh_token_hash"`
+	AuthMethod       string             `json:"auth_method"`
+	ExpiresAt        time.Time          `json:"expires_at"`
+	CreatedAt        time.Time          `json:"created_at"`
+	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
+}
+
+func (q *Queries) FindSessionByID(ctx context.Context, id string) (FindSessionByIDRow, error) {
 	row := q.db.QueryRow(ctx, findSessionByID, id)
-	var i Session
+	var i FindSessionByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.UserDid,
 		&i.TenantID,
 		&i.RefreshTokenHash,
+		&i.AuthMethod,
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.RevokedAt,
@@ -137,20 +165,33 @@ func (q *Queries) FindSessionByID(ctx context.Context, id string) (Session, erro
 }
 
 const findSessionByRefreshTokenHash = `-- name: FindSessionByRefreshTokenHash :one
-SELECT id, user_id, user_did, tenant_id, refresh_token_hash, expires_at, created_at, revoked_at
+SELECT id, user_id, user_did, tenant_id, refresh_token_hash, auth_method, expires_at, created_at, revoked_at
 FROM sessions
 WHERE refresh_token_hash = $1
 `
 
-func (q *Queries) FindSessionByRefreshTokenHash(ctx context.Context, refreshTokenHash string) (Session, error) {
+type FindSessionByRefreshTokenHashRow struct {
+	ID               string             `json:"id"`
+	UserID           string             `json:"user_id"`
+	UserDid          string             `json:"user_did"`
+	TenantID         pgtype.Text        `json:"tenant_id"`
+	RefreshTokenHash string             `json:"refresh_token_hash"`
+	AuthMethod       string             `json:"auth_method"`
+	ExpiresAt        time.Time          `json:"expires_at"`
+	CreatedAt        time.Time          `json:"created_at"`
+	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
+}
+
+func (q *Queries) FindSessionByRefreshTokenHash(ctx context.Context, refreshTokenHash string) (FindSessionByRefreshTokenHashRow, error) {
 	row := q.db.QueryRow(ctx, findSessionByRefreshTokenHash, refreshTokenHash)
-	var i Session
+	var i FindSessionByRefreshTokenHashRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.UserDid,
 		&i.TenantID,
 		&i.RefreshTokenHash,
+		&i.AuthMethod,
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.RevokedAt,
@@ -159,7 +200,7 @@ func (q *Queries) FindSessionByRefreshTokenHash(ctx context.Context, refreshToke
 }
 
 const listSessions = `-- name: ListSessions :many
-SELECT id, user_id, user_did, tenant_id, refresh_token_hash, expires_at, created_at, revoked_at
+SELECT id, user_id, user_did, tenant_id, refresh_token_hash, auth_method, expires_at, created_at, revoked_at
 FROM sessions
 WHERE ($3::text IS NULL OR user_id = $3)
   AND ($4::text IS NULL OR tenant_id = $4)
@@ -183,7 +224,19 @@ type ListSessionsParams struct {
 	SortOrder  interface{} `json:"sort_order"`
 }
 
-func (q *Queries) ListSessions(ctx context.Context, arg ListSessionsParams) ([]Session, error) {
+type ListSessionsRow struct {
+	ID               string             `json:"id"`
+	UserID           string             `json:"user_id"`
+	UserDid          string             `json:"user_did"`
+	TenantID         pgtype.Text        `json:"tenant_id"`
+	RefreshTokenHash string             `json:"refresh_token_hash"`
+	AuthMethod       string             `json:"auth_method"`
+	ExpiresAt        time.Time          `json:"expires_at"`
+	CreatedAt        time.Time          `json:"created_at"`
+	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
+}
+
+func (q *Queries) ListSessions(ctx context.Context, arg ListSessionsParams) ([]ListSessionsRow, error) {
 	rows, err := q.db.Query(ctx, listSessions,
 		arg.Limit,
 		arg.Offset,
@@ -197,15 +250,16 @@ func (q *Queries) ListSessions(ctx context.Context, arg ListSessionsParams) ([]S
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Session{}
+	items := []ListSessionsRow{}
 	for rows.Next() {
-		var i Session
+		var i ListSessionsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
 			&i.UserDid,
 			&i.TenantID,
 			&i.RefreshTokenHash,
+			&i.AuthMethod,
 			&i.ExpiresAt,
 			&i.CreatedAt,
 			&i.RevokedAt,

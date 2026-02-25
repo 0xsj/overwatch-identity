@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"time"
+
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/0xsj/overwatch-pkg/security"
@@ -126,7 +128,52 @@ func toUpdateUserParams(user *model.User) sqlc.UpdateUserParams {
 
 // Session mappers
 
-func toSessionModel(row sqlc.Session) (*model.Session, error) {
+// sessionRow is an interface for the various sqlc session row types.
+type sessionRow struct {
+	ID               string
+	UserID           string
+	UserDid          string
+	TenantID         pgtype.Text
+	RefreshTokenHash string
+	AuthMethod       string
+	ExpiresAt        time.Time
+	CreatedAt        time.Time
+	RevokedAt        pgtype.Timestamptz
+}
+
+func sessionRowFromFindByID(row sqlc.FindSessionByIDRow) sessionRow {
+	return sessionRow{
+		ID: row.ID, UserID: row.UserID, UserDid: row.UserDid, TenantID: row.TenantID,
+		RefreshTokenHash: row.RefreshTokenHash, AuthMethod: row.AuthMethod,
+		ExpiresAt: row.ExpiresAt, CreatedAt: row.CreatedAt, RevokedAt: row.RevokedAt,
+	}
+}
+
+func sessionRowFromFindByRefreshTokenHash(row sqlc.FindSessionByRefreshTokenHashRow) sessionRow {
+	return sessionRow{
+		ID: row.ID, UserID: row.UserID, UserDid: row.UserDid, TenantID: row.TenantID,
+		RefreshTokenHash: row.RefreshTokenHash, AuthMethod: row.AuthMethod,
+		ExpiresAt: row.ExpiresAt, CreatedAt: row.CreatedAt, RevokedAt: row.RevokedAt,
+	}
+}
+
+func sessionRowFromFindActive(row sqlc.FindActiveSessionsByUserIDRow) sessionRow {
+	return sessionRow{
+		ID: row.ID, UserID: row.UserID, UserDid: row.UserDid, TenantID: row.TenantID,
+		RefreshTokenHash: row.RefreshTokenHash, AuthMethod: row.AuthMethod,
+		ExpiresAt: row.ExpiresAt, CreatedAt: row.CreatedAt, RevokedAt: row.RevokedAt,
+	}
+}
+
+func sessionRowFromList(row sqlc.ListSessionsRow) sessionRow {
+	return sessionRow{
+		ID: row.ID, UserID: row.UserID, UserDid: row.UserDid, TenantID: row.TenantID,
+		RefreshTokenHash: row.RefreshTokenHash, AuthMethod: row.AuthMethod,
+		ExpiresAt: row.ExpiresAt, CreatedAt: row.CreatedAt, RevokedAt: row.RevokedAt,
+	}
+}
+
+func toSessionModel(row sessionRow) (*model.Session, error) {
 	id, err := types.ParseID(row.ID)
 	if err != nil {
 		return nil, err
@@ -148,6 +195,7 @@ func toSessionModel(row sqlc.Session) (*model.Session, error) {
 		userDID,
 		textToOptionalID(row.TenantID),
 		row.RefreshTokenHash,
+		model.AuthMethod(row.AuthMethod),
 		types.FromTime(row.ExpiresAt),
 		types.FromTime(row.CreatedAt),
 		timestamptzToOptionalTimestamp(row.RevokedAt),
@@ -161,6 +209,7 @@ func toCreateSessionParams(session *model.Session) sqlc.CreateSessionParams {
 		UserDid:          session.UserDID().String(),
 		TenantID:         optionalIDToPgText(session.TenantID()),
 		RefreshTokenHash: session.RefreshTokenHash(),
+		AuthMethod:       string(session.AuthMethod()),
 		ExpiresAt:        session.ExpiresAt().Time(),
 		CreatedAt:        session.CreatedAt().Time(),
 		RevokedAt:        optionalTimestampToPgTimestamptz(session.RevokedAt()),
@@ -235,7 +284,7 @@ func toUpdateAPIKeyParams(apiKey *model.APIKey) sqlc.UpdateAPIKeyParams {
 
 // OAuthIdentity mappers
 
-func toOAuthIdentityModel(row sqlc.OAuthIdentity) *model.OAuthIdentity {
+func toOAuthIdentityModel(row sqlc.OauthIdentity) *model.OAuthIdentity {
 	id, _ := types.ParseID(row.ID)
 	userID, _ := types.ParseID(row.UserID)
 

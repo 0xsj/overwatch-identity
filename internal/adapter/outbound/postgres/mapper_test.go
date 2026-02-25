@@ -396,12 +396,13 @@ func TestToSessionModel(t *testing.T) {
 	userID := types.NewID()
 	tenantID := types.NewID()
 
-	row := sqlc.Session{
+	row := sessionRow{
 		ID:               id.String(),
 		UserID:           userID.String(),
 		UserDid:          did.String(),
 		TenantID:         pgtype.Text{String: tenantID.String(), Valid: true},
 		RefreshTokenHash: "somehash",
+		AuthMethod:       "did_challenge",
 		ExpiresAt:        now.Add(time.Hour),
 		CreatedAt:        now,
 		RevokedAt:        pgtype.Timestamptz{Valid: false},
@@ -437,12 +438,13 @@ func TestToSessionModel_WithRevokedAt(t *testing.T) {
 	now := time.Now().UTC()
 	revokedAt := now.Add(-time.Minute)
 
-	row := sqlc.Session{
+	row := sessionRow{
 		ID:               types.NewID().String(),
 		UserID:           types.NewID().String(),
 		UserDid:          did.String(),
 		TenantID:         pgtype.Text{Valid: false},
 		RefreshTokenHash: "somehash",
+		AuthMethod:       "did_challenge",
 		ExpiresAt:        now.Add(time.Hour),
 		CreatedAt:        now,
 		RevokedAt:        pgtype.Timestamptz{Time: revokedAt, Valid: true},

@@ -9,6 +9,14 @@ import (
 	domainerror "github.com/0xsj/overwatch-identity/internal/domain/error"
 )
 
+// AuthMethod represents how a session was created.
+type AuthMethod string
+
+const (
+	AuthMethodDIDChallenge AuthMethod = "did_challenge"
+	AuthMethodOAuth        AuthMethod = "oauth"
+)
+
 // Session represents an authenticated user session.
 // Created after successful DID challenge verification.
 type Session struct {
@@ -17,6 +25,7 @@ type Session struct {
 	userDID          *security.DID
 	tenantID         types.Optional[types.ID]
 	refreshTokenHash string
+	authMethod       AuthMethod
 	expiresAt        types.Timestamp
 	createdAt        types.Timestamp
 	revokedAt        types.Optional[types.Timestamp]
@@ -42,6 +51,18 @@ func NewSession(
 	refreshTokenHash string,
 	config SessionConfig,
 ) (*Session, error) {
+	return NewSessionWithMethod(userID, userDID, tenantID, refreshTokenHash, AuthMethodDIDChallenge, config)
+}
+
+// NewSessionWithMethod creates a new Session with an explicit auth method.
+func NewSessionWithMethod(
+	userID types.ID,
+	userDID *security.DID,
+	tenantID types.Optional[types.ID],
+	refreshTokenHash string,
+	authMethod AuthMethod,
+	config SessionConfig,
+) (*Session, error) {
 	if userID.IsEmpty() {
 		return nil, domainerror.ErrUserIDRequired
 	}
@@ -50,6 +71,9 @@ func NewSession(
 	}
 	if refreshTokenHash == "" {
 		return nil, domainerror.ErrRefreshTokenInvalid
+	}
+	if authMethod == "" {
+		authMethod = AuthMethodDIDChallenge
 	}
 
 	now := types.Now()
@@ -60,6 +84,7 @@ func NewSession(
 		userDID:          userDID,
 		tenantID:         tenantID,
 		refreshTokenHash: refreshTokenHash,
+		authMethod:       authMethod,
 		expiresAt:        now.Add(config.SessionDuration),
 		createdAt:        now,
 		revokedAt:        types.None[types.Timestamp](),
@@ -73,16 +98,21 @@ func ReconstructSession(
 	userDID *security.DID,
 	tenantID types.Optional[types.ID],
 	refreshTokenHash string,
+	authMethod AuthMethod,
 	expiresAt types.Timestamp,
 	createdAt types.Timestamp,
 	revokedAt types.Optional[types.Timestamp],
 ) *Session {
+	if authMethod == "" {
+		authMethod = AuthMethodDIDChallenge
+	}
 	return &Session{
 		id:               id,
 		userID:           userID,
 		userDID:          userDID,
 		tenantID:         tenantID,
 		refreshTokenHash: refreshTokenHash,
+		authMethod:       authMethod,
 		expiresAt:        expiresAt,
 		createdAt:        createdAt,
 		revokedAt:        revokedAt,
@@ -96,6 +126,7 @@ func (s *Session) UserID() types.ID                           { return s.userID 
 func (s *Session) UserDID() *security.DID                     { return s.userDID }
 func (s *Session) TenantID() types.Optional[types.ID]         { return s.tenantID }
 func (s *Session) RefreshTokenHash() string                   { return s.refreshTokenHash }
+func (s *Session) AuthMethod() AuthMethod                     { return s.authMethod }
 func (s *Session) ExpiresAt() types.Timestamp                 { return s.expiresAt }
 func (s *Session) CreatedAt() types.Timestamp                 { return s.createdAt }
 func (s *Session) RevokedAt() types.Optional[types.Timestamp] { return s.revokedAt }
